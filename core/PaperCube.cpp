@@ -1,11 +1,15 @@
 ﻿// PaperCube.cpp : Defines the entry point for the application.
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <cassert>
 #include <iostream>
 #include <vector>
-#include <cstdint>
 
 using BYTE = std::uint8_t;
+using SIZE = std::size_t;
 
-template <unsigned int N>
+template <SIZE N>
 class Cube {
 public:
 	struct Move; // Declaration for the Move struct
@@ -13,7 +17,7 @@ public:
 private:
 	static_assert(N >= 2, "Minimum size of Cube can be 2");
 
-	const char COLORS[6] = { 'W', 'B', 'O', 'G', 'R', 'Y' };
+	static constexpr char COLORS[6] = { 'W', 'B', 'O', 'G', 'R', 'Y' };
 
 	template <BYTE Mod>
 	struct Orientation {
@@ -46,17 +50,14 @@ private:
 		Center(BYTE color) : color(color) {}
 	};
 
-	std::vector<Corner> corners;
-	std::vector<Edge> edges;
-	std::vector<Center> centers;
+	std::array<Corner, 8> corners;
+	std::array<Edge, 12 * (N - 2)> edges;
+	std::array<Center, 6 * (N - 2) * (N - 2) > centers;
 
 	std::vector<Move> move_history;
 
 public:
-	Cube() :
-		corners(8),
-		edges(12 * (N - 2)),
-		centers(6 * (N - 2) * (N - 2)) {
+	Cube() {
 		// TODO: Initialize corners, edges and centers array for a solved cube
 	}
 
@@ -66,38 +67,47 @@ public:
 	};
 
 	enum class Direction : signed char { // Direction of Move/Rotation ― Clockwise | Counter-Clockwise
-		CCW = -1, CW = 1
+		CCW = 1, CW = -1
 	};
 
 	struct Move {
 		Axis axis;
 		Direction direction;
-		unsigned int layer;
+		SIZE layer;
 
-		Move(Axis axis, Direction direction, unsigned int layer) : axis(axis), direction(direction), layer(layer% N) {}
+		explicit Move(Axis axis, Direction direction, SIZE layer) : axis(axis), direction(direction), layer(layer) {
+			assert((layer < N) && "Layer cannot be greater that or equal to size of cube");
+		}
 	};
 
 	class State {
 	private:
-		std::vector<BYTE> cube;
-		State() : cube(6 * N * N) {}
+		std::array<BYTE, 6 * N * N> stickers; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N stickers
+		explicit State(const std::array<Corner, 8>& corners,
+			const std::array<Edge, 12 * (N - 2)>& edges,
+			const std::array<Center, 6 * (N - 2) * (N - 2)>& centers) {
+			// TODO: Write logic to covert corners, edges, and centers arrays to State object
+		}
 		friend class Cube;
 	public:
-		BYTE at(int face, int row, int col) { return col + N * row + N * N * face; }
+		char at(SIZE face, SIZE row, SIZE col) const {
+			assert((face < 6) && "Value of face cannot be greater than or equal to 6");
+			assert((row < N) && "Value of row cannot be greater that or equal to N");
+			assert((col < N) && "Value of column cannot be greater than or equal to N");
+			return Cube<N>::COLORS[stickers[col + N * row + N * N * face]];
+		}
 		void printCube() {}
 		void printFace(int face) {}
 
 	};
 
-	void apply_move(Move move) {
+	void apply_move(const Move& move) {
 		move_history.push_back(move);
 		// TODO: Write the logic for applying the move
 	}
 
-	State get_state() {
-		State state();
-		// TODO: Write logic to covert corners, edges, and centers arrays to State object
-
+	State get_state() const {
+		State state(corners, edges, centers);
 		return state;
 	}
 };
