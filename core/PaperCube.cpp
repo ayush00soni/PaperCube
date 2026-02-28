@@ -5,9 +5,14 @@
 
 using BYTE = std::uint8_t;
 
+template <unsigned int N>
 class Cube {
+public:
+	struct Move; // Declaration for the Move struct
+
 private:
-	int n;
+	static_assert(N >= 2, "Minimum size of Cube can be 2");
+
 	const char COLORS[6] = { 'W', 'B', 'O', 'G', 'R', 'Y' };
 
 	template <BYTE Mod>
@@ -45,28 +50,60 @@ private:
 	std::vector<Edge> edges;
 	std::vector<Center> centers;
 
+	std::vector<Move> move_history;
+
 public:
-	Cube(int n) :
-		n(n), 
-		corners(8), 
-		edges(12 * static_cast<size_t>(n - 2)),
-		centers(6 * static_cast<size_t>(n - 2) * static_cast<size_t>(n - 2)) {
+	Cube() :
+		corners(8),
+		edges(12 * (N - 2)),
+		centers(6 * (N - 2) * (N - 2)) {
+		// TODO: Initialize corners, edges and centers array for a solved cube
 	}
+
+	// Move configuration enums
+	enum class Axis : BYTE { // Axis of Move/Rotation ― X | Y | Z
+		X = 0, Y = 1, Z = 2
+	};
+
+	enum class Direction : signed char { // Direction of Move/Rotation ― Clockwise | Counter-Clockwise
+		CCW = -1, CW = 1
+	};
+
+	struct Move {
+		Axis axis;
+		Direction direction;
+		unsigned int layer;
+
+		Move(Axis axis, Direction direction, unsigned int layer) : axis(axis), direction(direction), layer(layer% N) {}
+	};
 
 	class State {
 	private:
 		std::vector<BYTE> cube;
-		State(int n) : cube(6 * static_cast<size_t>(n) * n) {}
+		State() : cube(6 * N * N) {}
+		friend class Cube;
 	public:
-		BYTE at(int face, int row, int col) {}
+		BYTE at(int face, int row, int col) { return col + N * row + N * N * face; }
 		void printCube() {}
 		void printFace(int face) {}
 
 	};
+
+	void apply_move(Move move) {
+		move_history.push_back(move);
+		// TODO: Write the logic for applying the move
+	}
+
+	State get_state() {
+		State state();
+		// TODO: Write logic to covert corners, edges, and centers arrays to State object
+
+		return state;
+	}
 };
 
 int main()
 {
-	std::cout << "Hello CMake." << std::endl;
+	std::cout << "Hello PaperCube." << std::endl;
 	return 0;
 }
