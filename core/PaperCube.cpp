@@ -29,7 +29,7 @@ namespace papercube {
 		static_assert(N >= 2, "Minimum size of Cube can be 2");
 
 		// Colors are arranged such that opposite faces have a distance of 3
-		static constexpr char COLORS[6] = { 'W', 'B', 'R', 'Y', 'G', 'O' };
+		static constexpr char COLORS[6] = { 'W', 'R', 'B', 'Y', 'O', 'G' };
 
 		struct Corner {
 			BYTE color;
@@ -69,7 +69,7 @@ namespace papercube {
 		struct Center {
 			BYTE color;
 			Center() = default;
-			explicit Center(BYTE color) : color(color) {}
+			explicit Center(BYTE color) : color(color) { assert((color < 6) && "Invalid color code!"); }
 		};
 
 		std::array<Corner, 8> corners;
@@ -97,7 +97,7 @@ namespace papercube {
 
 		class State {
 		private:
-			std::array<BYTE, 6 * N * N> stickers; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N stickers
+			std::array<BYTE, 6 * N * N> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
 			State(const std::array<Corner, 8>& corners,
 				const std::array<Edge, 12 * (N - 2)>& edges,
 				const std::array<Center, 6 * (N - 2) * (N - 2)>& centers) {
@@ -109,11 +109,17 @@ namespace papercube {
 				assert((face < 6) && (row < N) && (col < N) && "Index out of range!");
 				if (!((face < 6) && (row < N) && (col < N)))
 					throw std::out_of_range("Cube::State::at - Index out of range!");
-				return Cube<N>::COLORS[stickers[col + N * row + N * N * face]];
+				return Cube<N>::COLORS[facelets[col + N * row + N * N * face]];
 			}
 			void print_cube() const {} // TODO: Write logic to print the complete cube, one face at a time
 			void print_face(int face) const {} // TODO: Write logic to print specific face
-			bool is_solved() const {} // TODO: Write logic to check if the state is solved state
+			bool is_solved() const {
+				for (int face = 0; face < 6; face++) // For each face
+					for (int facelet = 0; facelet < N * N - 1; facelet++) // For each facelet in a face
+						if (facelets[N * N * face + facelet] != facelets[N * N * face + facelet + 1]) 
+							return false; // If current facelet != next facelet : return false;
+				return true;
+			}
 		};
 
 		void apply_move(const Move& move) {
