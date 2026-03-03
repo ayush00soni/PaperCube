@@ -1,9 +1,9 @@
 ﻿// PaperCube.cpp : Defines the entry point for the application.
 #include <array>
-#include <cstddef>
-#include <cstdint>
 #include <cassert>
+#include <cstdint>
 #include <iostream>
+#include <stdexcept>
 #include <vector>
 
 namespace papercube {
@@ -14,42 +14,62 @@ namespace papercube {
 	template <SIZE N>
 	class Cube {
 	public:
+		// Move configuration enums
+		enum class Axis : BYTE { // Axis of Move/Rotation ― X | Y | Z
+			X = 0, Y = 1, Z = 2
+		};
+
+		enum class Direction : signed char { // Direction of Move/Rotation ― Clockwise | Counter-Clockwise
+			CCW = 1, CW = -1
+		};
+
 		struct Move; // Declaration for the Move struct
 
 	private:
 		static_assert(N >= 2, "Minimum size of Cube can be 2");
 
-		static constexpr char COLORS[6] = { 'W', 'B', 'O', 'G', 'R', 'Y' };
-
-		template <BYTE Mod>
-		struct Orientation {
-			BYTE val;
-			explicit Orientation(int val = 0) : val((((val) % Mod) + Mod) % Mod) {}
-			Orientation& operator+= (int val2) {
-				val = (((val + val2) % Mod) + Mod) % Mod;
-				return *this;
-			}
-			Orientation& operator-= (int val2) {
-				val = (((val - val2) % Mod) + Mod) % Mod;
-				return *this;
-			}
-		};
+		// Colors are arranged such that opposite faces have a distance of 3
+		static constexpr char COLORS[6] = { 'W', 'B', 'R', 'Y', 'G', 'O' };
 
 		struct Corner {
 			BYTE color;
-			Orientation<3> orientation;
-			explicit Corner(BYTE color = 0, int orientation = 0) : color(color), orientation(orientation) {}
+			Corner() = default;
+			explicit Corner(const std::array<BYTE, 3>& color) : color(36 * color[2] + 6 * color[1] + color[0]) {
+				for (int i = 0; i < 3; i++)
+					assert((color[i] < 6) && "Invalid color code!");
+				for (int i = 0; i < 3; i++)
+					for (int j = i + 1; j < 3; j++) {
+						// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
+						assert(((color[i] * color[i] + color[j] * color[j] - 2 * color[i] * color[j]) !=9) && "Opposite faces cannot be on same corners");
+					}
+			}
+
+			void rotate(Direction dir) {
+				this->color = (dir == Direction::CCW) ?
+					((this->color * 6) % 216 + (this->color / 36)) : // If dir == CCW: (c0 c1 c2) -> (c2 c0 c1)
+					(36 * (this->color % 6) + (this->color / 6));    // If dir == CW: (c0 c1 c2) -> (c1 c2 c0)
+			}
 		};
 
 		struct Edge {
 			BYTE color;
-			Orientation<2> orientation;
-			explicit Edge(BYTE color = 0, int orientation = 0) : color(color), orientation(orientation) {}
+			Edge() = default;
+			explicit Edge(const std::array<BYTE, 2>& color) : color(6 * color[1] + color[0]) {
+				for (int i = 0; i < 2; i++)
+					assert((color[i] < 6) && "Invalid color code!");
+				// (|c0 - c1| != 3 => (c0^2 + c1^2 - 2*c0*c1 != 9), this is done to avoid negative integers
+				assert(((color[0] * color[0] + color[1] * color[1] - 2 * color[0] * color[1]) != 9) && "Opposite faces cannot be on same corners");
+			}
+
+			void flip() {
+				this->color = ((this->color * 6) % 36 + (this->color / 6)); // (c0 c1) -> (c1 c0)
+			}
 		};
 
 		struct Center {
 			BYTE color;
-			explicit Center(BYTE color = 0) : color(color) {}
+			Center() = default;
+			explicit Center(BYTE color) : color(color) {}
 		};
 
 		std::array<Corner, 8> corners;
@@ -63,14 +83,6 @@ namespace papercube {
 			// TODO: Initialize corners, edges and centers array for a solved cube
 		}
 
-		// Move configuration enums
-		enum class Axis : BYTE { // Axis of Move/Rotation ― X | Y | Z
-			X = 0, Y = 1, Z = 2
-		};
-
-		enum class Direction : signed char { // Direction of Move/Rotation ― Clockwise | Counter-Clockwise
-			CCW = 1, CW = -1
-		};
 
 		struct Move {
 			Axis axis;
@@ -78,7 +90,8 @@ namespace papercube {
 			SIZE layer;
 
 			Move(Axis axis, Direction direction, SIZE layer) : axis(axis), direction(direction), layer(layer) {
-				assert((layer < N) && "Layer cannot be greater that or equal to size of cube");
+				assert((layer < N) && "Layer index out of range!");
+				if (!(layer < N)) throw std::out_of_range("Cube::Move - Layer index out of range!");
 			}
 		};
 
@@ -93,9 +106,9 @@ namespace papercube {
 			friend class Cube;
 		public:
 			char at(SIZE face, SIZE row, SIZE col) const {
-				assert((face < 6) && "Value of face cannot be greater than or equal to 6");
-				assert((row < N) && "Value of row cannot be greater that or equal to N");
-				assert((col < N) && "Value of column cannot be greater than or equal to N");
+				assert((face < 6) && (row < N) && (col < N) && "Index out of range!");
+				if (!((face < 6) && (row < N) && (col < N)))
+					throw std::out_of_range("Cube::State::at - Index out of range!");
 				return Cube<N>::COLORS[stickers[col + N * row + N * N * face]];
 			}
 			void print_cube() const {} // TODO: Write logic to print the complete cube, one face at a time
