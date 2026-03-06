@@ -31,6 +31,11 @@ namespace papercube {
 		// Colors are arranged such that opposite faces have a distance of 3
 		static constexpr char COLORS[6] = { 'W', 'R', 'B', 'Y', 'O', 'G' };
 
+		// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
+		static constexpr bool is_opposite(BYTE c0, BYTE c1) {
+			assert((c0 < 6 && c1 < 6) && "Invalid color code!")
+			return ((c0 * c0 + c1 * c1 - 2 * c0 * c1) == 9); }
+
 		struct Corner {
 			BYTE color;
 			Corner() : color(0) {}
@@ -40,7 +45,7 @@ namespace papercube {
 				for (int i = 0; i < 3; i++)
 					for (int j = i + 1; j < 3; j++) {
 						// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
-						assert(((color[i] * color[i] + color[j] * color[j] - 2 * color[i] * color[j]) !=9) && "Opposite faces cannot be on same corners");
+						assert(((color[i] * color[i] + color[j] * color[j] - 2 * color[i] * color[j]) != 9) && "Opposite faces cannot be on same corners");
 					}
 			}
 
@@ -86,6 +91,17 @@ namespace papercube {
 					centers[(N - 2) * (N - 2) * face + facelet] = Center(face);
 				}
 			}
+
+			// Initialize Corners
+			for (BYTE c0 = 0; c0 < 6; c0 += 3) {
+				BYTE c1 = c0 + 1;
+				for (int i = 0; i < 4; i++) {
+					BYTE c2 = (c1 + 1) % 6;
+					while (this->is_opposite(c2, c1) || this->is_opposite(c2, c0)) c2++;
+					corners[(c0 / 3) * 4 + i] = Corner(std::array<BYTE, 3>{ c0, c1, c2 });
+				}
+			}
+
 			// TODO: Initialize corners and edges array for a solved cube
 		}
 
@@ -122,7 +138,7 @@ namespace papercube {
 			bool is_solved() const {
 				for (int face = 0; face < 6; face++) // For each face
 					for (int facelet = 0; facelet < N * N - 1; facelet++) // For each facelet in a face
-						if (facelets[N * N * face + facelet] != facelets[N * N * face + facelet + 1]) 
+						if (facelets[N * N * face + facelet] != facelets[N * N * face + facelet + 1])
 							return false; // If current facelet != next facelet : return false;
 				return true;
 			}
