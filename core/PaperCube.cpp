@@ -33,7 +33,7 @@ namespace papercube {
 
 		struct Corner {
 			BYTE color;
-			Corner() = default;
+			Corner() : color(0) {}
 			explicit Corner(const std::array<BYTE, 3>& color) : color(36 * color[2] + 6 * color[1] + color[0]) {
 				for (int i = 0; i < 3; i++)
 					assert((color[i] < 6) && "Invalid color code!");
@@ -53,7 +53,7 @@ namespace papercube {
 
 		struct Edge {
 			BYTE color;
-			Edge() = default;
+			Edge() : color(0) {}
 			explicit Edge(const std::array<BYTE, 2>& color) : color(6 * color[1] + color[0]) {
 				for (int i = 0; i < 2; i++)
 					assert((color[i] < 6) && "Invalid color code!");
@@ -68,7 +68,7 @@ namespace papercube {
 
 		struct Center {
 			BYTE color;
-			Center() = default;
+			Center() : color(0) {}
 			explicit Center(BYTE color) : color(color) { assert((color < 6) && "Invalid color code!"); }
 		};
 
@@ -80,7 +80,13 @@ namespace papercube {
 
 	public:
 		Cube() {
-			// TODO: Initialize corners, edges and centers array for a solved cube
+			// Initialize faces
+			for (int face = 0; face < 6; face++) {
+				for (int facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
+					centers[(N - 2) * (N - 2) * face + facelet] = Center(face);
+				}
+			}
+			// TODO: Initialize corners and edges array for a solved cube
 		}
 
 
@@ -134,7 +140,7 @@ namespace papercube {
 }
 
 int main() {
-	std::cout << "Hello PaperCube." << std::endl;
 	papercube::Cube<3> cube;
+	std::cout << "Hello PaperCube." << std::endl;
 	return 0;
 }
