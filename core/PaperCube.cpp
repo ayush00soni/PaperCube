@@ -29,12 +29,13 @@ namespace papercube {
 		static_assert(N >= 2, "Minimum size of Cube can be 2");
 
 		// Colors are arranged such that opposite faces have a distance of 3
-		static constexpr char COLORS[6] = { 'W', 'R', 'B', 'Y', 'O', 'G' };
+		static constexpr char COLORS[6] = { 'W','B','O','Y','G','R' };
 
 		// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
 		static constexpr bool is_opposite(BYTE c0, BYTE c1) {
-			assert((c0 < 6 && c1 < 6) && "Invalid color code!")
-			return ((c0 * c0 + c1 * c1 - 2 * c0 * c1) == 9); }
+			assert((c0 < 6 && c1 < 6) && "Invalid color code!");
+			return ((c0 * c0 + c1 * c1 - 2 * c0 * c1) == 9);
+		}
 
 		struct Corner {
 			BYTE color;
@@ -92,17 +93,23 @@ namespace papercube {
 				}
 			}
 
-			// Initialize Corners
-			for (BYTE c0 = 0; c0 < 6; c0 += 3) {
-				BYTE c1 = c0 + 1;
-				for (int i = 0; i < 4; i++) {
-					BYTE c2 = (c1 + 1) % 6;
-					while (this->is_opposite(c2, c1) || this->is_opposite(c2, c0)) c2++;
-					corners[(c0 / 3) * 4 + i] = Corner(std::array<BYTE, 3>{ c0, c1, c2 });
+			// Initialize Edges
+			for (BYTE i = 0; i < 2; i++) {
+				for (BYTE j = 0; j < 6; j++) {
+					for (SIZE k = 0; k < N - 2; k++) {
+						edges[static_cast<SIZE>(6 * i + j) * (N - 2) + k] = Edge(std::array<BYTE, 2>{j, static_cast<BYTE>((i + j) % 6)});
+					}
 				}
 			}
 
-			// TODO: Initialize corners and edges array for a solved cube
+			// Initialize Corners
+			static const std::array<std::array<BYTE, 3>, 8> CORNER_COLORS = { {
+				{0,1,2},{2,3,4},{4,5,0},{0,2,4},
+				{5,4,3},{3,2,1},{1,0,5},{5,3,1}
+			} };
+			for (int i = 0; i < 8; i++) {
+				corners[i] = Corner(CORNER_COLORS[i]);
+			}
 		}
 
 
