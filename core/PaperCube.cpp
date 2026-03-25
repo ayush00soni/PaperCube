@@ -11,22 +11,18 @@ namespace papercube {
 	using BYTE = std::uint8_t;
 	using SIZE = std::size_t;
 
-	template <SIZE N>
 	class Cube {
 	public:
 		// Move configuration enums
-		enum class Axis : BYTE { // Axis of Move/Rotation ― X | Y | Z
-			X = 0, Y = 1, Z = 2
-		};
+		enum class Axis : BYTE { X = 0, Y = 1, Z = 2 }; // Axis of Move/Rotation ― X | Y | Z
 
-		enum class Direction : signed char { // Direction of Move/Rotation ― Clockwise | Counter-Clockwise
-			CCW = 1, CW = -1
-		};
+		// Direction of Move/Rotation ― Clockwise | Counter-Clockwise
+		enum class Direction : signed char { CCW = 1, CW = -1 };
 
 		struct Move; // Declaration for the Move struct
 
 	private:
-		static_assert(N >= 2, "Minimum size of Cube can be 2");
+		SIZE N;
 
 		// Colors are arranged such that opposite faces have a distance of 3
 		static constexpr char COLORS[6] = { 'W','B','O','Y','G','R' };
@@ -79,14 +75,19 @@ namespace papercube {
 		};
 
 		std::array<Corner, 8> corners;
-		std::array<Edge, 12 * (N - 2)> edges;
-		std::array<Center, 6 * (N - 2) * (N - 2) > centers;
+		std::unique_ptr<Edge[]> edges;
+		std::unique_ptr<Center[]> centers;
 
 		std::vector<Move> move_history;
 
 	public:
-		Cube() {
-			// Initialize faces
+		Cube(SIZE N) :
+			N(N),
+			centers(std::make_unique<Center[]>(6 * (N - 2) * (N - 2))),
+			edges(std::make_unique<Edge[]>(12 * (N - 2))) {
+			if (N < 2) throw std::invalid_argument("Minimum size of cube is 2");
+
+			// Initialize centers
 			for (int face = 0; face < 6; face++) {
 				for (int facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
 					centers[(N - 2) * (N - 2) * face + facelet] = Center(face);
@@ -97,7 +98,7 @@ namespace papercube {
 			for (BYTE i = 0; i < 2; i++) {
 				for (BYTE j = 0; j < 6; j++) {
 					for (SIZE k = 0; k < N - 2; k++) {
-						edges[static_cast<SIZE>(6 * i + j) * (N - 2) + k] = Edge(std::array<BYTE, 2>{j, static_cast<BYTE>((i + j) % 6)});
+						this->edges[static_cast<SIZE>(6 * i + j) * (N - 2) + k] = Edge(std::array<BYTE, 2>{j, static_cast<BYTE>((i + j) % 6)});
 					}
 				}
 			}
@@ -108,7 +109,7 @@ namespace papercube {
 				{5,4,3},{3,2,1},{1,0,5},{5,3,1}
 			} };
 			for (int i = 0; i < 8; i++) {
-				corners[i] = Corner(CORNER_COLORS[i]);
+				this->corners[i] = Corner(CORNER_COLORS[i]);
 			}
 		}
 
@@ -118,18 +119,20 @@ namespace papercube {
 			Direction direction;
 			SIZE layer;
 
-			Move(Axis axis, Direction direction, SIZE layer) : axis(axis), direction(direction), layer(layer) {
-				assert((layer < N) && "Layer index out of range!");
-				if (!(layer < N)) throw std::out_of_range("Cube::Move - Layer index out of range!");
-			}
+			Move(Axis axis, Direction direction, SIZE layer) : axis(axis), direction(direction), layer(layer) {}
 		};
 
 		class State {
 		private:
-			std::array<BYTE, 6 * N * N> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
-			State(const std::array<Corner, 8>& corners,
-				const std::array<Edge, 12 * (N - 2)>& edges,
-				const std::array<Center, 6 * (N - 2) * (N - 2)>& centers) {
+			SIZE N;
+			std::unique_ptr<BYTE[]> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
+
+			State(
+				SIZE N,
+				const std::array<Corner, 8> &corners,
+				const std::unique_ptr<Edge[]>& edges,
+				const std::unique_ptr<Center[]>& centers
+			) : N(N) {
 				// TODO: Write logic to covert corners, edges, and centers arrays to State object
 			}
 			friend class Cube;
@@ -138,7 +141,7 @@ namespace papercube {
 				assert((face < 6) && (row < N) && (col < N) && "Index out of range!");
 				if (!((face < 6) && (row < N) && (col < N)))
 					throw std::out_of_range("Cube::State::at - Index out of range!");
-				return Cube<N>::COLORS[facelets[col + N * row + N * N * face]];
+				return Cube::COLORS[facelets[col + N * row + N * N * face]];
 			}
 			void print_cube() const {} // TODO: Write logic to print the complete cube, one face at a time
 			void print_face(int face) const {} // TODO: Write logic to print specific face
@@ -152,18 +155,19 @@ namespace papercube {
 		};
 
 		void apply_move(const Move& move) {
+			if (!(move.layer < this->N)) throw std::invalid_argument("Cube::apply_move - Move.layer should be less than size of cube!");
 			move_history.push_back(move);
 			// TODO: Write the logic for applying the move
 		}
 
-		State get_state() const { return State(corners, edges, centers); }
+		State get_state() const { return State(N, corners, edges, centers); }
 
 		bool is_solved() const { return (this->get_state()).is_solved(); } // TODO: Try to optimize so you don't need to call get state to check if the cube is solved
 	};
 }
 
 int main() {
-	papercube::Cube<3> cube;
+	papercube::Cube cube(3);
 	std::cout << "Hello PaperCube." << std::endl;
 	return 0;
 }
