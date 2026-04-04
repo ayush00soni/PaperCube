@@ -22,7 +22,7 @@ namespace papercube {
 		struct Move; // Declaration for the Move struct
 
 	private:
-		SIZE N;
+		const SIZE N;
 
 		// Colors are arranged such that opposite faces have a distance of 3
 		static constexpr char COLORS[6] = { 'W','B','O','Y','G','R' };
@@ -43,6 +43,7 @@ namespace papercube {
 					for (int j = i + 1; j < 3; j++) {
 						// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
 						assert(((color[i] * color[i] + color[j] * color[j] - 2 * color[i] * color[j]) != 9) && "Opposite faces cannot be on same corners");
+						assert((color[i] != color[j]) && "Two different faces cannot have same color on a corner");
 					}
 			}
 
@@ -61,6 +62,7 @@ namespace papercube {
 					assert((color[i] < 6) && "Invalid color code!");
 				// (|c0 - c1| != 3 => (c0^2 + c1^2 - 2*c0*c1 != 9), this is done to avoid negative integers
 				assert(((color[0] * color[0] + color[1] * color[1] - 2 * color[0] * color[1]) != 9) && "Opposite faces cannot be on same corners");
+				assert((color[0] != color[1]) && "Two different faces cannot have same color on a edge");
 			}
 
 			void flip() {
@@ -77,7 +79,6 @@ namespace papercube {
 		std::array<Corner, 8> corners;
 		std::unique_ptr<Edge[]> edges;
 		std::unique_ptr<Center[]> centers;
-
 		std::vector<Move> move_history;
 
 	public:
@@ -98,7 +99,7 @@ namespace papercube {
 			for (BYTE i = 0; i < 2; i++) {
 				for (BYTE j = 0; j < 6; j++) {
 					for (SIZE k = 0; k < N - 2; k++) {
-						this->edges[static_cast<SIZE>(6 * i + j) * (N - 2) + k] = Edge(std::array<BYTE, 2>{j, static_cast<BYTE>((i + j) % 6)});
+						this->edges[static_cast<SIZE>(6 * i + j) * (N - 2) + k] = Edge(std::array<BYTE, 2>{j, static_cast<BYTE>((i + j + 1) % 6)});
 					}
 				}
 			}
@@ -124,17 +125,26 @@ namespace papercube {
 
 		class State {
 		private:
-			SIZE N;
-			std::unique_ptr<BYTE[]> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
+			const SIZE N;
+			const std::vector<BYTE> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
+
+			static std::vector<BYTE> init_facelets(
+				SIZE N,
+				const std::array<Corner, 8>& corners,
+				const std::unique_ptr<Edge[]>& edges,
+				const std::unique_ptr<Center[]>& centers
+			) {
+				// TODO: Write logic to covert corners, edges, and centers arrays to State object
+			}
 
 			State(
 				SIZE N,
-				const std::array<Corner, 8> &corners,
+				const std::array<Corner, 8>& corners,
 				const std::unique_ptr<Edge[]>& edges,
 				const std::unique_ptr<Center[]>& centers
-			) : N(N) {
-				// TODO: Write logic to covert corners, edges, and centers arrays to State object
+			) : N(N), facelets(init_facelets(N, corners, edges, centers)) {
 			}
+
 			friend class Cube;
 		public:
 			char at(SIZE face, SIZE row, SIZE col) const {
@@ -152,6 +162,7 @@ namespace papercube {
 							return false; // If current facelet != next facelet : return false;
 				return true;
 			}
+			SIZE size() const { return N; }
 		};
 
 		void apply_move(const Move& move) {
@@ -160,9 +171,11 @@ namespace papercube {
 			// TODO: Write the logic for applying the move
 		}
 
-		State get_state() const { return State(N, corners, edges, centers); }
+		State state() const { return State(N, corners, edges, centers); }
 
-		bool is_solved() const { return (this->get_state()).is_solved(); } // TODO: Try to optimize so you don't need to call get state to check if the cube is solved
+		SIZE size() const { return N; }
+
+		bool is_solved() const { return (this->state()).is_solved(); } // TODO: Try to optimize so you don't need to call get state to check if the cube is solved
 	};
 }
 
