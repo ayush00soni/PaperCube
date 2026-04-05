@@ -24,8 +24,14 @@ namespace papercube {
 	private:
 		const SIZE N;
 
+		// Throw an exception if the input size N is less than 2
+		static SIZE validate_size(SIZE N) {
+			if (N < 2) throw std::invalid_argument("Minimum size of cube is 2");
+			return N;
+		}
+
 		// Colors are arranged such that opposite faces have a distance of 3
-		static constexpr char COLORS[6] = { 'W','B','O','Y','G','R' };
+		static constexpr std::array<char, 6> COLORS = { 'W','B','O','Y','G','R' };
 
 		// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
 		static constexpr bool is_opposite(BYTE c0, BYTE c1) {
@@ -41,9 +47,10 @@ namespace papercube {
 					assert((color[i] < 6) && "Invalid color code!");
 				for (int i = 0; i < 3; i++)
 					for (int j = i + 1; j < 3; j++) {
-						// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
-						assert(((color[i] * color[i] + color[j] * color[j] - 2 * color[i] * color[j]) != 9) && "Opposite faces cannot be on same corners");
-						assert((color[i] != color[j]) && "Two different faces cannot have same color on a corner");
+						assert(!(is_opposite(color[i], color[j])) &&
+							"Opposite faces cannot be on same corners");
+						assert((color[i] != color[j]) && 
+							"Two different faces cannot have same color on a corner");
 					}
 			}
 
@@ -61,8 +68,10 @@ namespace papercube {
 				for (int i = 0; i < 2; i++)
 					assert((color[i] < 6) && "Invalid color code!");
 				// (|c0 - c1| != 3 => (c0^2 + c1^2 - 2*c0*c1 != 9), this is done to avoid negative integers
-				assert(((color[0] * color[0] + color[1] * color[1] - 2 * color[0] * color[1]) != 9) && "Opposite faces cannot be on same corners");
-				assert((color[0] != color[1]) && "Two different faces cannot have same color on a edge");
+				assert(!(is_opposite(color[0], color[1])) &&
+					"Opposite faces cannot be on same corners");
+				assert((color[0] != color[1]) && 
+					"Two different faces cannot have same color on a edge");
 			}
 
 			void flip() {
@@ -83,14 +92,13 @@ namespace papercube {
 
 	public:
 		Cube(SIZE N) :
-			N(N),
+			N(validate_size(N)),
 			centers(std::make_unique<Center[]>(6 * (N - 2) * (N - 2))),
 			edges(std::make_unique<Edge[]>(12 * (N - 2))) {
-			if (N < 2) throw std::invalid_argument("Minimum size of cube is 2");
 
 			// Initialize centers
-			for (int face = 0; face < 6; face++) {
-				for (int facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
+			for (BYTE face = 0; face < 6; face++) {
+				for (SIZE facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
 					centers[(N - 2) * (N - 2) * face + facelet] = Center(face);
 				}
 			}
@@ -105,7 +113,7 @@ namespace papercube {
 			}
 
 			// Initialize Corners
-			static const std::array<std::array<BYTE, 3>, 8> CORNER_COLORS = { {
+			static constexpr std::array<std::array<BYTE, 3>, 8> CORNER_COLORS = { {
 				{0,1,2},{2,3,4},{4,5,0},{0,2,4},
 				{5,4,3},{3,2,1},{1,0,5},{5,3,1}
 			} };
@@ -116,11 +124,11 @@ namespace papercube {
 
 
 		struct Move {
-			Axis axis;
-			Direction direction;
-			SIZE layer;
+			const Axis axis;
+			const Direction direction;
+			const SIZE layer;
 
-			Move(Axis axis, Direction direction, SIZE layer) : axis(axis), direction(direction), layer(layer) {}
+			Move(const Axis axis, const Direction direction, const SIZE layer) : axis(axis), direction(direction), layer(layer) {}
 		};
 
 		class State {
@@ -128,13 +136,29 @@ namespace papercube {
 			const SIZE N;
 			const std::vector<BYTE> facelets; // Flattened array to store the color values (indices from COLORS array) of the 6 * N * N facelets
 
+			// TODO: Write logic to covert corners, edges, and centers arrays to the flattened array (facelets)
 			static std::vector<BYTE> init_facelets(
 				SIZE N,
-				const std::array<Corner, 8>& corners,
-				const std::unique_ptr<Edge[]>& edges,
-				const std::unique_ptr<Center[]>& centers
+				const Corner* corners,
+				const Edge* edges,
+				const Center* centers
 			) {
-				// TODO: Write logic to covert corners, edges, and centers arrays to State object
+				std::vector<BYTE> stickers(6 * N * N);
+
+				// Assign centers in the stickers array
+				for (BYTE face = 0; face < 6; face++)
+					for (SIZE i = 0; i < (N - 2); i++)
+						for (SIZE j = 0; j < (N - 2); j++)
+							stickers[(face * N * N) + (i + 1) * N + (j + 1)] = 
+							centers[i * (N - 2) + j].color;
+
+				// TODO: Assign edges to stickers array
+				 
+				 
+				// TODO: Assign corners to stickers array
+
+
+				return stickers;
 			}
 
 			State(
@@ -168,19 +192,34 @@ namespace papercube {
 		void apply_move(const Move& move) {
 			if (!(move.layer < this->N)) throw std::invalid_argument("Cube::apply_move - Move.layer should be less than size of cube!");
 			move_history.push_back(move);
+
 			// TODO: Write the logic for applying the move
+
 		}
 
 		State state() const { return State(N, corners, edges, centers); }
 
 		SIZE size() const { return N; }
 
-		bool is_solved() const { return (this->state()).is_solved(); } // TODO: Try to optimize so you don't need to call get state to check if the cube is solved
+		// TODO: Try to optimize so you don't need to call get state to check if the cube is solved
+		bool is_solved() const { return (this->state()).is_solved(); } 
 	};
 }
 
+// For testing and debugging only, should be removed in the finished project.
 int main() {
-	papercube::Cube cube(3);
+	papercube::Cube c3(3);
+	assert(c3.size() == 3);
 	std::cout << "Hello PaperCube." << std::endl;
+	try {
+		papercube::Cube c1(1);
+		assert(false && "Expected invalid_argument exception, but none thrown");
+	}
+	catch (const std::invalid_argument& e) {
+		std::cout << "Cube of size 1 not created" << std::endl;
+	}
+	catch (...) {
+		assert(false && "Wrong exception thrown");
+	}
 	return 0;
 }
