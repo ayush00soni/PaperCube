@@ -30,8 +30,10 @@ namespace papercube {
 			return N;
 		}
 
+		// Index for each face of the Cube is same as index of initial color on that face
 		// Colors are arranged such that opposite faces have a distance of 3
 		static constexpr std::array<char, 6> COLORS = { 'W','B','O','Y','G','R' };
+		// TODO: Use an enum for colors instead of BYTE and COLORS array
 
 		// (|ci - cj| != 3 => (ci^2 + cj^2 - 2*ci*cj != 9), this is done to avoid negative integers
 		static constexpr bool is_opposite(BYTE c0, BYTE c1) {
@@ -52,6 +54,13 @@ namespace papercube {
 						assert((color[i] != color[j]) && 
 							"Two different faces cannot have same color on a corner");
 					}
+			}
+
+			BYTE get_color(BYTE index) const {
+				assert((index < 3) && "Index out of range!");
+				BYTE result = color;
+				for (int i = 0; i < index; i++) result /= 6; // Right shift in base 6
+				return result % 6;
 			}
 
 			void rotate(Direction dir) {
@@ -77,6 +86,13 @@ namespace papercube {
 			void flip() {
 				this->color = ((this->color * 6) % 36 + (this->color / 6)); // (c0 c1) -> (c1 c0)
 			}
+
+			BYTE get_color(BYTE index) const {
+				assert((index < 2) && "Index out of range!");
+				BYTE result = color;
+				for (int i = 0; i < index; i++) result /= 6;
+				return result % 6;
+			}
 		};
 
 		struct Center {
@@ -89,6 +105,14 @@ namespace papercube {
 		std::unique_ptr<Edge[]> edges;
 		std::unique_ptr<Center[]> centers;
 		std::vector<Move> move_history;
+
+		// A mapping for each corner to three faces of the cube
+		static constexpr std::array<std::array<BYTE, 3>, 8> CORNER_FACE_MAP = { {
+			{0,1,2},{2,3,4},{4,5,0},{0,2,4},
+			{5,4,3},{3,2,1},{1,0,5},{5,3,1}
+		} };
+		// A mapping for each edge to three faces of the cube
+		//static constexpr std::array<std::array<BYTE, 2>, 12> EDGE_FACE_MAP;
 
 	public:
 		Cube(SIZE N) :
@@ -113,12 +137,8 @@ namespace papercube {
 			}
 
 			// Initialize Corners
-			static constexpr std::array<std::array<BYTE, 3>, 8> CORNER_COLORS = { {
-				{0,1,2},{2,3,4},{4,5,0},{0,2,4},
-				{5,4,3},{3,2,1},{1,0,5},{5,3,1}
-			} };
 			for (int i = 0; i < 8; i++) {
-				this->corners[i] = Corner(CORNER_COLORS[i]);
+				this->corners[i] = Corner(CORNER_FACE_MAP[i]);
 			}
 		}
 
@@ -139,9 +159,9 @@ namespace papercube {
 			// TODO: Write logic to covert corners, edges, and centers arrays to the flattened array (facelets)
 			static std::vector<BYTE> init_facelets(
 				SIZE N,
-				const Corner* corners,
-				const Edge* edges,
-				const Center* centers
+				const std::array<Corner, 8>& corners,
+				const std::unique_ptr<Edge[]>& edges,
+				const std::unique_ptr<Center[]>& centers
 			) {
 				std::vector<BYTE> stickers(6 * N * N);
 
@@ -150,13 +170,53 @@ namespace papercube {
 					for (SIZE i = 0; i < (N - 2); i++)
 						for (SIZE j = 0; j < (N - 2); j++)
 							stickers[(face * N * N) + (i + 1) * N + (j + 1)] = 
-							centers[i * (N - 2) + j].color;
+							centers[face * (N - 2) * (N - 2) + i * (N - 2) + j].color;
 
 				// TODO: Assign edges to stickers array
 				 
 				 
 				// TODO: Assign corners to stickers array
+				for (int i = 0; i < 8; i++) {
+					for (int j = 0; j < 3; j++) {
+						// f0 is the current face in which the color has to be assigned
+						const BYTE f0 = Cube::CORNER_FACE_MAP[i][j];
 
+						// f1 and f2 are the adjacent faces to determine which corner of the face the color has to be assigned
+						const BYTE f1 = Cube::CORNER_FACE_MAP[i][(j+1)%3];
+						const BYTE f2 = Cube::CORNER_FACE_MAP[i][(j+2)%3];
+
+						int x = -1, y = -1;
+						// Cycle through each corner of the face to check that is the correct corner
+						for (int k = 0; k < 4; k++) {
+							BYTE face1 = (f0 + k + 1) % 6;
+							if (Cube::is_opposite(face1, f0)) face1 = (face1 + 1) % 6;
+							BYTE face2 = (face1 + 1) % 6;
+							if (Cube::is_opposite(face2, f0)) face2 = (face2 + 1) % 6;
+							if ((face1 == f1) && (face2 == f2)) {
+								switch (k) {
+								case 0:
+									x = 0, y = 0;
+									break;
+								case 1:
+									x = 0, y = N - 1;
+									break;
+								case 2:
+									x = N - 1, y = N - 1;
+									break;
+								case 3:
+									x = N - 1, y = 0;
+									break;
+								}
+								break; 
+							}
+						}
+						assert((x != -1 && y != -1) 
+							&& "Corner Mapping Failed");
+
+						// Assign the corner the correct color
+						stickers[f0 * N * N + y * N + x] = corners[i].get_color(j);
+					}
+				}
 
 				return stickers;
 			}
