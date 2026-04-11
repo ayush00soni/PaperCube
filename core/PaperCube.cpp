@@ -26,8 +26,6 @@ namespace papercube {
 	private:
 		const SIZE N;
 
-
-
 		// Index for each face of the Cube is same as index of initial color on that face
 		// Colors are arranged such that opposite faces have a distance of 3
 		static constexpr std::array<char, 6> COLORS = { 'W','B','O','Y','G','R' };
@@ -310,7 +308,14 @@ namespace papercube {
 				return Cube::COLORS[facelets[col + N * row + N * N * face]];
 			}
 
-			void print_face(int face) const {} // TODO: Write logic to print specific face
+			// TODO: Write logic to print specific face
+			void print_face(int face) const {
+				for (SIZE i = 0; i < N; i++) {
+					for (SIZE j = 0; j < N; j++) 
+						std::cout << this->at(face, i, j) << " ";
+					std::cout << std::endl;
+				}
+			} 
 
 			bool is_solved() const {
 				return Cube::facelets_solved(this->facelets, this->N);
@@ -376,6 +381,18 @@ int main() {
 	std::cout << "\nState of c3:" << std::endl;
 	c3_state.print();
 	assert(c3_state.is_solved()); 
+
+	std::cout << "\nCreating Cube of Size 4" << std::endl;
+	papercube::Cube c4(4);
+	assert(c4.size() == 4);
+	assert(c4.is_solved());
+	std::cout << "Cube of Size 4, created successfully!" << std::endl;
+
+	std::cout << "\nGetting Cube State" << std::endl;
+	auto c4_state = c4.state();
+	assert(c4_state.is_solved()); 
+	std::cout << "\nFace 2 of State of c4:" << std::endl;
+	c3_state.print_face(2);
 
 	std::cout << "\nCreating Cube of Size 10" << std::endl;
 	papercube::Cube c10(10);
