@@ -163,7 +163,7 @@ namespace papercube {
 				const std::unique_ptr<Edge[]>& edges,
 				const std::unique_ptr<Center[]>& centers
 			) {
-				std::vector<BYTE> stickers(6 * N * N);
+				std::vector<BYTE> stickers(6 * N * N, 0);
 
 				// Assign centers in the stickers array
 				for (BYTE face = 0; face < 6; face++)
@@ -187,12 +187,14 @@ namespace papercube {
 
 						int x = -1, y = -1;
 						// Cycle through each corner of the face to check that is the correct corner
+						BYTE face1 = f0;
 						for (int k = 0; k < 4; k++) {
-							BYTE face1 = (f0 + k + 1) % 6;
-							if (Cube::is_opposite(face1, f0)) face1 = (face1 + 1) % 6;
+							face1 = (face1 + 1) % 6;
+							if (Cube::is_opposite(face1, f0) || face1 == f0) face1 = (face1 + 1) % 6;
+
 							BYTE face2 = (face1 + 1) % 6;
-							if (Cube::is_opposite(face2, f0)) face2 = (face2 + 1) % 6;
-							if ((face1 == f1) && (face2 == f2)) {
+							if (Cube::is_opposite(face2, f0) || face2 == f0) face2 = (face2 + 1) % 6;
+							if (((face1 == f1) && (face2 == f2)) || ((face1 == f2) && (face2 == f1))) {
 								switch (k) {
 								case 0:
 									x = 0, y = 0;
@@ -247,6 +249,16 @@ namespace papercube {
 				return true;
 			}
 			SIZE size() const { return N; }
+			void print() const {
+				for (BYTE face = 0; face < 6; face++) {
+					for (SIZE i = 0; i < N; i++) {
+						for (SIZE j = 0; j < N; j++)
+							std::cout << Cube::COLORS[this->facelets[face * N * N + j * N + i]] << " ";
+						std::cout << std::endl;
+					}
+					std::cout << std::endl;
+				}
+			}
 		};
 
 		void apply_move(const Move& move) {
@@ -254,6 +266,7 @@ namespace papercube {
 			move_history.push_back(move);
 
 			// TODO: Write the logic for applying the move
+
 
 		}
 
@@ -263,14 +276,13 @@ namespace papercube {
 
 		// TODO: Try to optimize so you don't need to call get state to check if the cube is solved
 		bool is_solved() const { return (this->state()).is_solved(); } 
+
+		
 	};
 }
 
 // For testing and debugging only, should be removed in the finished project.
 int main() {
-	papercube::Cube c3(3);
-	assert(c3.size() == 3);
-	std::cout << "Hello PaperCube." << std::endl;
 	try {
 		papercube::Cube c1(1);
 		assert(false && "Expected invalid_argument exception, but none thrown");
@@ -281,5 +293,13 @@ int main() {
 	catch (...) {
 		assert(false && "Wrong exception thrown");
 	}
+	std::cout << "\nCreating Cube of Size 3" << std::endl;
+	papercube::Cube c3(3);
+	assert(c3.size() == 3);
+
+	auto c3_state = c3.state();
+	std::cout << "\nState of c3:" << std::endl;
+	c3_state.print();
+
 	return 0;
 }
