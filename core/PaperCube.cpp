@@ -34,7 +34,7 @@ namespace papercube {
 		// TODO: Use an enum for colors instead of BYTE and COLORS array
 
 		// Internal Data Structures for Cube pieces
-		static struct Corner {
+		struct Corner {
 			BYTE color;
 			Corner() : color(0) {}
 			explicit Corner(const std::array<BYTE, 3>& color) : color(36 * color[2] + 6 * color[1] + color[0]) {
@@ -132,8 +132,7 @@ namespace papercube {
 						stickers[(face * N * N) + (i + 1) * N + (j + 1)] =
 						centers[face * (N - 2) * (N - 2) + i * (N - 2) + j].color;
 
-			std::cout << "Centers Assigned" << std::endl;
-			// TODO: Assign edges to stickers array
+			// Assign edges to stickers array
 			for (int i = 0; i < 12; i++) {
 				for (int j = 0; j < 2; j++) {
 
@@ -178,7 +177,6 @@ namespace papercube {
 
 				}
 			}
-			std::cout << "Edges Assigned" << std::endl;
 			// Assign corners to stickers array
 			for (int i = 0; i < 8; i++) {
 				for (int j = 0; j < 3; j++) {
@@ -223,7 +221,6 @@ namespace papercube {
 					stickers[f0 * N * N + y * N + x] = corners[i].get_color(j);
 				}
 			}
-			std::cout << "Corners Assigned" << std::endl;
 			return stickers;
 		}
 
