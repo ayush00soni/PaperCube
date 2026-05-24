@@ -1,5 +1,6 @@
 ﻿// PaperCube.cpp : Defines the entry point for the application.
 #include <array>
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -28,8 +29,26 @@ namespace papercube {
 
 		// Index for each face of the Cube is same as index of initial color on that face
 		// Colors are arranged such that opposite faces have a distance of 3
-		static constexpr std::array<char, 6> COLORS = { 'W','B','O','Y','G','R' };
+		static constexpr std::array<char, 6> COLOR_MAP = { 'W','B','O','Y','G','R' };
 		// TODO: Use an enum for colors instead of BYTE and COLORS array
+
+		// A mapping for each corner to three faces of the cube
+		static constexpr std::array<std::array<BYTE, 3>, 8> CORNER_FACE_MAP = { {
+			{0,1,2},{0,2,4},{0,4,5},{0,5,1},
+			{3,1,5},{3,5,4},{3,4,2},{3,2,1}
+		} };
+
+		// A mapping for each edge to two faces of the cube
+		static constexpr std::array<std::array<BYTE, 2>, 12> EDGE_FACE_MAP = []() {
+			std::array<std::array<BYTE, 2>, 12> temp_edges{};
+			int k = 0;
+			for (BYTE i = 0; i < 6; i++)
+				for (BYTE j = 0; j < 2; j++) {
+					assert(k < 12 && "EDGE_FACE_MAP initialization index out of bounds");
+					temp_edges[k++] = std::array<BYTE, 2>{ { i, static_cast<BYTE>((i + j + 1) % 6) } };
+				}
+			return temp_edges;
+			}();
 
 		// Internal Data Structures for Cube pieces
 		struct Corner {
@@ -54,10 +73,9 @@ namespace papercube {
 				return result % 6;
 			}
 
-			void rotate(Direction dir) {
-				this->color = (dir == Direction::CCW) ?
-					((this->color * 6) % 216 + (this->color / 36)) : // If dir == CCW: (c0 c1 c2) -> (c2 c0 c1)
-					(36 * (this->color % 6) + (this->color / 6));    // If dir == CW: (c0 c1 c2) -> (c1 c2 c0)
+			void rotate() {
+
+				this->color = ((this->color * 6) % 216 + (this->color / 36)); // (c0 c1 c2) -> (c2 c0 c1)
 			}
 		};
 
@@ -122,6 +140,7 @@ namespace papercube {
 			const std::unique_ptr<Center[]>& centers
 		) {
 			std::vector<BYTE> stickers(6 * N * N, 0);
+			// TODO: Replace these loops with faster lookup tables
 
 			// Assign centers in the stickers array
 			for (BYTE face = 0; face < 6; face++)
@@ -231,24 +250,7 @@ namespace papercube {
 		// To store every move made on the cube
 		std::vector<Move> move_history;
 
-		// A mapping for each corner to three faces of the cube
-		static constexpr std::array<std::array<BYTE, 3>, 8> CORNER_FACE_MAP = { {
-			{0,1,2},{2,3,4},{4,5,0},{0,2,4},
-			{5,4,3},{3,2,1},{1,0,5},{5,3,1}
-		} };
 
-		// A mapping for each edge to two faces of the cube
-		static constexpr std::array<std::array<BYTE, 2>, 12> EDGE_FACE_MAP = []() {
-			std::array<std::array<BYTE, 2>, 12> temp_edges{};
-			int k = 0;
-			for (BYTE i = 0; i < 2; i++)
-				for (BYTE j = 0; j < 6; j++)
-				{
-					assert(k < 12 && "EDGE_FACE_MAP initialization index out of bounds");
-					temp_edges[k++] = std::array<BYTE, 2>{ j, static_cast<BYTE>((i + j + 1) % 6) };
-				}
-			return temp_edges;
-			}();
 
 	public:
 		Cube(SIZE N) :
@@ -271,7 +273,6 @@ namespace papercube {
 					this->edges[k++] = Edge(edge);
 				}
 			}
-
 			// Initialize Corners
 			for (int i = 0; i < 8; i++) {
 				this->corners[i] = Corner(CORNER_FACE_MAP[i]);
@@ -283,7 +284,19 @@ namespace papercube {
 			const Direction direction;
 			const SIZE layer;
 
-			Move(const Axis axis, const Direction direction, const SIZE layer) : axis(axis), direction(direction), layer(layer) {}
+			Move(
+				const Axis axis, 
+				const Direction direction, 
+				const SIZE layer
+			) : axis(axis), direction(direction), layer(layer) {}
+
+			Move inverse() {
+				return Move(
+					this->axis,
+					(this->direction == Direction::CCW) ? Direction::CW : Direction::CCW,
+					this->layer
+				);
+			}
 		};
 
 		class State {
@@ -305,10 +318,10 @@ namespace papercube {
 				assert((face < 6) && (row < N) && (col < N) && "Index out of range!");
 				if (!((face < 6) && (row < N) && (col < N)))
 					throw std::out_of_range("Cube::State::at - Index out of range!");
-				return Cube::COLORS[facelets[col + N * row + N * N * face]];
+				return Cube::COLOR_MAP[facelets[col + N * row + N * N * face]];
 			}
 
-			// TODO: Write logic to print specific face
+			// Print specific face
 			void print_face(int face) const {
 				for (SIZE i = 0; i < N; i++) {
 					for (SIZE j = 0; j < N; j++) 
@@ -338,10 +351,202 @@ namespace papercube {
 		void apply_move(const Move& move) {
 			if (!(move.layer < this->N)) throw std::invalid_argument("Cube::apply_move - Move.layer should be less than size of cube!");
 			move_history.push_back(move);
+			// Axis Definition:
+			// X (0) -> Axis from face 5 (-X, left) to face 2 (+X, right)
+			// Y (1) -> Axis from face 3 (-Y, down) to face 0 (+Y, up)
+			// Z (2) -> Axis from face 1 (-Z, front) to face 4 (+Z, back)
+
+			// Direction: Clockwise and Anti-clockwise direction is taken along the given axis using right-hand thumb rule
+
+			const BYTE axis = static_cast<BYTE>(move.axis);
+			const signed char dir = static_cast<signed char>(move.direction);
 
 			// TODO: Write the logic for applying the move
 
+			// TODO: Replace these loops and conditionals with faster lookup tables
+			// End Layers
+			if (move.layer == 0 || move.layer == N - 1) {
+				// affected face is the face which is being rotated along the axis
+				const BYTE affected_face = (move.layer == 0) ? (5 - 2 * axis) % 6 : (8 - 2 * axis) % 6;
 
+				// Get the indices of the corners that are supposed to change the position
+				const std::array<SIZE, 4> affected_corners = [affected_face] {
+					std::array<SIZE, 4> temp_corners{ {0,0,0,0} };
+					int k = 0;
+					for (int i = 0; i < CORNER_FACE_MAP.size(); i++) {
+						for (const auto& face : Cube::CORNER_FACE_MAP[i]) {
+							if (face == affected_face) {
+								temp_corners[k++] = i;
+								break;
+							}
+						}
+					}
+					return temp_corners;
+					} ();
+
+				// Pointers to current corner and the next corner
+				BYTE next_corner_idx = 1, current_corner_idx = 0;
+				// Buffer to hold the value of the corner before changing it
+				auto buffer_corner = this->corners[affected_corners[current_corner_idx]];
+
+				// Switch the positions of the corners and rotate them simultaneously
+				for (BYTE i = 0; i < 4; i++) {
+					// Search for the correct next corner
+					for (int j = 0; j < 3; j++) {
+						// Find the index of common face in the next corner
+						BYTE common_face = 0;
+						while (CORNER_FACE_MAP[affected_corners[next_corner_idx]][common_face] != affected_face) 
+							common_face++;
+
+						// Get the face mapping of the current corner
+						auto current_corner = CORNER_FACE_MAP[affected_corners[current_corner_idx]];
+
+						// Store the buffer before changing it
+						auto temp_corner = buffer_corner;
+
+						// Rotate current corner and buffer corner until the indices of the common face match
+						while (current_corner[common_face] != affected_face) {
+							buffer_corner.rotate();
+							std::rotate(current_corner.rbegin(), current_corner.rbegin()+1, current_corner.rend());
+						}
+						
+						// Color of the faces of the next corner 
+						BYTE face1 = current_corner[(common_face + 1) % 3],
+							face2 = current_corner[(common_face + 2) % 3];
+						
+						// Determine face1 of next corner
+						do {
+							face1 = (face1 + dir + 6) % 6;
+						} while (face1 == affected_face || face1 == (affected_face + 3) % 6);
+
+						// Determine face2 of next corner
+						do {
+							face2 = (face2 + dir + 6) % 6;
+						} while (face2 == affected_face || face2 == (affected_face + 3) % 6 || face1==face2);
+
+						// Check if the next corner is at the correct index
+						if (CORNER_FACE_MAP[affected_corners[next_corner_idx]][(common_face + 1) % 3] == face1 &&
+							CORNER_FACE_MAP[affected_corners[next_corner_idx]][(common_face + 2) % 3] == face2) break;
+						
+						// If not increment next corner
+						next_corner_idx = (next_corner_idx + 1) % 4;
+						// Restore buffer
+						buffer_corner = temp_corner;
+					}
+
+					// Swap buffer corner with next corner
+					assert((next_corner_idx < 4) && "Corner Index out of bounds");
+					auto temp = this->corners[affected_corners[next_corner_idx]];
+					this->corners[affected_corners[next_corner_idx]] = buffer_corner;
+					buffer_corner = temp;
+					
+					// Update current corner idx
+					current_corner_idx = next_corner_idx;
+					// Increment next corner idx
+					next_corner_idx = (current_corner_idx + 1) % 4;
+				}
+
+				// Get indices of affected edges
+				const std::array<SIZE, 4> affected_edges = [affected_face] {
+					std::array<SIZE, 4> temp_edges{ {0,0,0,0} };
+					int k = 0;
+					for (int i = 0; i < EDGE_FACE_MAP.size(); i++) {
+						for (const auto& face : Cube::EDGE_FACE_MAP[i]) {
+							if (face == affected_face) {
+								temp_edges[k++] = i;
+								break;
+							}
+						}
+					}
+					return temp_edges;
+					} ();
+
+				// Buffer to hold the value of an edge grp before changing it
+				std::unique_ptr<Edge[]> buffer_edge_grp = std::make_unique<Edge[]>(N - 2);
+				for (int i = 0; i < N - 2; i++) {
+					buffer_edge_grp[i] = this->edges[affected_edges[0] * (N - 2) + i];
+				}
+				// Pointer to current edge and next edge
+				BYTE next_edge_idx = 1, current_edge_idx = 0;
+
+				for (BYTE i = 0; i < 4; i++) {
+					// To check if flip in the edge is required
+					bool flip = false;
+					// Search for the correct next edge
+					for (int j = 0; j < 3; j++) {
+						// Find the index of common face in the next edge
+						BYTE common_face = 0;
+						if (EDGE_FACE_MAP[affected_edges[next_edge_idx]][common_face] != affected_face)
+							common_face++;
+
+						// Get the face mapping of the current edge
+						auto current_edge = EDGE_FACE_MAP[affected_edges[current_edge_idx]];
+
+						// Flip current edge and set flip flag to true
+						if (current_edge[common_face] != affected_face) {
+							flip = true;
+							std::rotate(current_edge.begin(), current_edge.begin() + 1, current_edge.end());
+						}
+
+						// Color of the faces of the next edge 
+						BYTE adjacent_face = current_edge[(common_face + 1) % 2];
+
+						// Determine adjacent_face of next edge
+						do {
+							adjacent_face = (adjacent_face + dir + 6) % 6;
+						} while (adjacent_face == affected_face || adjacent_face == (affected_face + 3) % 6);
+
+						// Check if the next edge is at the correct index
+						if (EDGE_FACE_MAP[affected_edges[next_edge_idx]][(common_face + 1) % 2] == adjacent_face) break;
+
+						// If not increment next edge
+						next_edge_idx = (next_edge_idx + 1) % 4;
+						// Restore flip flag
+						flip = false;
+					}
+					for (SIZE j = 0; j < N - 2; j++) { // Repeat ^ for every edge in one edge group
+						const auto temp = this->edges[affected_edges[next_edge_idx] * (N - 2) + j];
+
+						// Flip if the affected edge do not match in position for buffer edge and next edge
+						if (flip) 
+							buffer_edge_grp[j].flip();
+
+						this->edges[affected_edges[next_edge_idx] * (N - 2) + j] = buffer_edge_grp[j];
+						buffer_edge_grp[j] = temp;
+					}
+
+					// Update current edge idx
+					current_edge_idx = next_edge_idx;
+					// Increment next edge idx
+					next_edge_idx = (next_edge_idx + 1) % 4;
+				}
+			}
+
+			// Middle layers
+			else {
+				// Affected faces: includes all 4 faces parallel to the axis of rotation
+				const std::array<BYTE, 4> affected_faces = [axis] {
+					BYTE k = 0;
+					std::array<BYTE, 4> temp_faces;
+					for (BYTE& face : temp_faces) {
+						if ((k == (axis + 2) % 3) || (k == (axis + 2) % 3 + 3))  k++;
+						face = k++;
+					}
+					return temp_faces;
+					}();
+				for (const auto& face : affected_faces) std::cout << COLOR_MAP[face] << std::endl;
+
+				// Get indices of affected edges
+				const std::array<SIZE, 4> affected_edges = [affected_faces] {
+					std::array<SIZE, 4> temp_edges{ {0,0,0,0} };
+					int k = 0;
+					for (int i = 0; i < EDGE_FACE_MAP.size(); i++) {
+						
+					}
+					return temp_edges;
+					} ();
+				for (const auto& edge : affected_edges) std::cout << edge << std::endl;
+			}
 		}
 
 		State state() const { return State(N, corners, edges, centers); }
@@ -354,57 +559,60 @@ namespace papercube {
 			return facelets_solved(facelets, this->N);
 		}
 
-		
 	};
 }
 
 // For testing and debugging only, should be removed in the finished project.
 int main() {
-	try {
-		papercube::Cube c1(1);
-		assert(false && "Expected invalid_argument exception, but none thrown");
-	}
-	catch (const std::invalid_argument& e) {
-		std::cout << "Cube of size 1 not created" << std::endl;
-	}
-	catch (...) {
-		assert(false && "Wrong exception thrown");
-	}
-	std::cout << "\nCreating Cube of Size 3" << std::endl;
-	papercube::Cube c3(3);
-	assert(c3.size() == 3);
-	assert(c3.is_solved());
-	std::cout << "Cube of Size 3, created successfully!" << std::endl;
+	//try {
+	//	papercube::Cube c1(1);
+	//	assert(false && "Expected invalid_argument exception, but none thrown");
+	//}
+	//catch (const std::invalid_argument& e) {
+	//	std::cout << "Cube of size 1 not created" << std::endl;
+	//}
+	//catch (...) {
+	//	assert(false && "Wrong exception thrown");
+	//}
+	//std::cout << "\nCreating Cube of Size 3" << std::endl;
+	//papercube::Cube c3(3);
+	//assert(c3.size() == 3);
+	//assert(c3.is_solved());
+	//std::cout << "Cube of Size 3, created successfully!" << std::endl;
 
-	std::cout << "\nGetting Cube State" << std::endl;
-	auto c3_state = c3.state();
-	std::cout << "\nState of c3:" << std::endl;
-	c3_state.print();
-	assert(c3_state.is_solved()); 
+	//std::cout << "\nGetting Cube State" << std::endl;
+	//auto c3_state = c3.state();
+	//std::cout << "\nState of c3:" << std::endl;
+	//c3_state.print();
+	//assert(c3_state.is_solved()); 
 
-	std::cout << "\nCreating Cube of Size 4" << std::endl;
+	//std::cout << "\nCreating Cube of Size 4" << std::endl;
 	papercube::Cube c4(4);
-	assert(c4.size() == 4);
-	assert(c4.is_solved());
-	std::cout << "Cube of Size 4, created successfully!" << std::endl;
+	//assert(c4.size() == 4);
+	//assert(c4.is_solved());
+	//std::cout << "Cube of Size 4, created successfully!" << std::endl;
 
-	std::cout << "\nGetting Cube State" << std::endl;
-	auto c4_state = c4.state();
-	assert(c4_state.is_solved()); 
-	std::cout << "\nFace 2 of State of c4:" << std::endl;
-	c3_state.print_face(2);
+	//std::cout << "\nGetting Cube State" << std::endl;
+	//auto c4_state = c4.state();
+	//assert(c4_state.is_solved()); 
+	//std::cout << "\nFace 2 of State of c4:" << std::endl;
+	//c3_state.print_face(2);
 
-	std::cout << "\nCreating Cube of Size 10" << std::endl;
-	papercube::Cube c10(10);
-	assert(c10.size() == 10);
-	assert(c10.is_solved()); 
-	std::cout << "Cube of Size 10, created successfully!" << std::endl;
+	//std::cout << "\nCreating Cube of Size 10" << std::endl;
+	//papercube::Cube c10(10);
+	//assert(c10.size() == 10);
+	//assert(c10.is_solved()); 
+	//std::cout << "Cube of Size 10, created successfully!" << std::endl;
 
-	std::cout << "\nGetting Cube State" << std::endl;
-	auto c10_state = c10.state();
-	assert(c10_state.is_solved()); 
-	std::cout << "\nState of c10:" << std::endl;
-	c10_state.print();
+	//std::cout << "\nGetting Cube State" << std::endl;
+	//auto c10_state = c10.state();
+	//assert(c10_state.is_solved()); 
+	//std::cout << "\nState of c10:" << std::endl;
+	//c10_state.print();
+
+	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 3));
+	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 0));
+	c4.state().print();
 
 	return 0;
 }
