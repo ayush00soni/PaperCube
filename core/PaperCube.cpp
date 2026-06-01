@@ -554,9 +554,7 @@ namespace papercube {
 					// Search for the correct next edge
 					for (int j = 0; j < 3; j++) {
 						// Find the index of common face in the next edge
-						common_face_idx = 0;
-						if (EDGE_FACE_MAP[affected_edges[next_edge_idx]][common_face_idx] != affected_face)
-							common_face_idx++;
+						common_face_idx = (EDGE_FACE_MAP[affected_edges[next_edge_idx]][0] == affected_face) ? 0 : 1;
 
 						// Get the face mapping of the current edge
 						auto current_edge = EDGE_FACE_MAP[affected_edges[current_edge_idx]];
@@ -585,11 +583,13 @@ namespace papercube {
 						flip = false;
 					}
 					// Position of the next edge on the common face
-					const auto& pos_next = EDGE_POS_MAP[affected_edges[next_edge_idx]][(common_face_idx + 1) % 2];
-					const auto pos_curr = (pos_next + 3) % 4;
+					const auto& pos_next = EDGE_POS_MAP[affected_edges[next_edge_idx]][common_face_idx];
+					BYTE curr_common_idx = (EDGE_FACE_MAP[affected_edges[current_edge_idx]][0] == affected_face) ? 0 : 1;
+					const auto pos_curr = EDGE_POS_MAP[affected_edges[current_edge_idx]][curr_common_idx];
 
 					// Check if order of current edge group is same as order of next edge group
-					const bool reversed = (EDGE_GRP_ORD[affected_face][pos_curr] != EDGE_GRP_ORD[affected_face][pos_next]);
+					const bool reversed = (pos_curr + pos_next == 3) ^
+						(EDGE_GRP_ORD[affected_face][pos_curr] != EDGE_GRP_ORD[affected_face][pos_next]);
 
 					auto temp = std::make_unique<Edge[]>(this->N - 2);
 
@@ -704,9 +704,10 @@ namespace papercube {
 
 					// Swap next edge with the buffer edge
 					assert((next_edge_grp_idx < 4) && "Edge index out of bounds");
-					auto temp_edge = this->edges[affected_edges[next_edge_grp_idx] * (N - 2) + move.layer - 1];
-					this->edges[affected_edges[next_edge_grp_idx] * (N - 2) + move.layer - 1] = buffer_edge;
-					buffer_edge = temp_edge;
+					std::swap(
+						this->edges[affected_edges[next_edge_grp_idx] * (N - 2) + move.layer - 1],
+						buffer_edge
+					);
 
 					// Update current edge idx
 					current_edge_grp_idx = next_edge_grp_idx;
@@ -820,12 +821,12 @@ int main() {
 	std::cout << "\nGetting Cube State" << std::endl;
 	auto c4_state = c4.state();
 	assert(c4_state.is_solved()); 
-	std::cout << "Rotate c4: X, CCW, 2" << std::endl;
+	//std::cout << "Rotate c4: X, CCW, 2" << std::endl;
 	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::X, papercube::Cube::Direction::CCW, 2));
 	std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
-	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 3));
+	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CW, 3));
 	std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
-	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 0));
+	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CW, 0));
 	c4.state().print();
 
 	return 0;
