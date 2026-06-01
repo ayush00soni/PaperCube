@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <vector>
 
@@ -555,19 +556,22 @@ namespace papercube {
 					// Check if order of current edge group is same as order of next edge group
 					const bool reversed = (EDGE_GRP_ORD[affected_face][pos_curr] != EDGE_GRP_ORD[affected_face][pos_next]);
 
+					auto temp = std::make_unique<Edge[]>(this->N - 2);
+
 					// Swap every edge in next edge group with edge in the buffer edge group
 					for (SIZE j = 0; j < N - 2; j++) {
 						assert((next_edge_idx < 4) && "Edge index out of bounds");
-						const auto temp = this->edges[affected_edges[next_edge_idx] * (N - 2) + j];
+						// If the order is reversed idx is done from the opposite 
+						const auto idx = ((reversed) ? (this->N - 3 - j) : j);
+						temp[idx] = this->edges[affected_edges[next_edge_idx] * (this->N - 2) + idx];
 
 						// Flip if the affected edge do not match in position for buffer edge and next edge
-						if (flip) 
+						if (flip)
 							buffer_edge_grp[j].flip();
-						// TODO: For some edge swapping order will be reversed, fix and implement that
-						this->edges[affected_edges[next_edge_idx] * (N - 2) + j] 
-							= buffer_edge_grp[(reversed) ? (N - 3 - j) : j];
-						buffer_edge_grp[j] = temp;
+						this->edges[affected_edges[next_edge_idx] * (this->N - 2) + idx] = buffer_edge_grp[j];
 					}
+
+					buffer_edge_grp = std::move(temp);
 
 					// Update current edge idx
 					current_edge_idx = next_edge_idx;
@@ -575,7 +579,28 @@ namespace papercube {
 					next_edge_idx = (next_edge_idx + 1) % 4;
 				}
 
-				// Todo: Rotate the Center Pieces
+				/// Rotate the Center Pieces
+				// Find the location of affected face in centers array
+				const auto face_offset = affected_face * (this->N - 2) * (this->N - 2);
+				// Transpose the center piece matrix
+				for (int i = 0; i < this->N - 2; i++) {
+					for (int j = i + 1; j < this->N - 2; j++) {
+						std::swap(this->centers[face_offset + (N - 2) * i + j],
+							this->centers[face_offset + (N - 2) * j + i]);
+					}
+				}
+
+				// The rotation direction along the face is opposite to that along the axis for layer 0
+				const auto face_dir = (move.layer == 0) ? -dir : dir;
+
+				for (int i = 0; i < this->N - 2; i++) {
+					for (int j = 0; j < (this->N - 2) / 2; j++) {
+						// For CCW direction reverse columns, else reverse rows
+						const auto swap_idx = ((face_dir == 1) ? ((N - 2) * (N - 3 - j) + i) : ((N - 2) * i + N - 3 - j)),
+							curr_idx = ((face_dir == 1) ? ((N - 2) * j + i) : ((N - 2) * i + j));
+						std::swap(this->centers[face_offset + curr_idx], this->centers[face_offset + swap_idx]);
+					}
+				}
 
 			}
 
