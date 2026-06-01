@@ -4,6 +4,7 @@
 #include <cassert>
 #include <cstdint>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -126,6 +127,32 @@ namespace papercube {
 			{1, 1, 1, 1}, {1, 0, 1, 0}, {1, 1, 1, 1},
 			{1, 0, 1, 0}, {1, 1, 1, 1}, {1, 0, 1, 0},
 		} };
+
+		// Faces along the axes
+		static constexpr std::array<std::array<BYTE, 2>, 3> AXIAL_FACE_PAIRS = []() {
+			std::array<std::array<BYTE, 2>, 3> temp{};
+			for (BYTE axis = 0; axis < 3; axis++) {
+				temp[axis] = { 
+					static_cast<BYTE>((5 - 2 * axis) % 6),
+					static_cast<BYTE>((8 - 2 * axis) % 6)
+				};
+			}
+			return temp;
+			} ();
+
+		// Faces parallel to the axes
+		static constexpr std::array < std::array<BYTE, 4>, 3> PARALLEL_FACE_GRPS = []() {
+			std::array < std::array<BYTE, 4>, 3> temp{};
+			for (BYTE axis = 0; axis < 3; axis++) {
+				const auto& axial_faces = AXIAL_FACE_PAIRS[axis];
+				BYTE k = 0;
+				for (BYTE& face : temp[axis]) {
+					if ((k == axial_faces[0]) || (k == axial_faces[1]))  k++;
+					face = k++;
+				}
+			}
+			return temp;
+			} ();
 
 		// Internal Data Structures for Cube pieces
 		struct Corner {
@@ -399,12 +426,20 @@ namespace papercube {
 			const BYTE axis = static_cast<BYTE>(move.axis);
 			const signed char dir = static_cast<signed char>(move.direction);
 
+
+			// Axial faces: the two faces through which the axis is passing through
+			const auto& axial_faces = AXIAL_FACE_PAIRS[axis];
+
+			// Parallel faces: includes all 4 faces parallel to the axis of rotation			
+			const auto& parallel_faces = PARALLEL_FACE_GRPS[axis];
+			for (const auto& face : parallel_faces) std::cout << COLOR_MAP[face] << std::endl;
+
 			// TODO: Write the logic for applying the move
-	
+
 			// End Layers
 			if (move.layer == 0 || move.layer == N - 1) {
 				// affected face is the face which is being rotated along the axis
-				const BYTE affected_face = (move.layer == 0) ? (5 - 2 * axis) % 6 : (8 - 2 * axis) % 6;
+				const BYTE affected_face = (move.layer == 0) ? axial_faces[0] : axial_faces[1];
 
 				/// Rotate the corners
 
@@ -434,7 +469,7 @@ namespace papercube {
 					for (int j = 0; j < 3; j++) {
 						// Find the index of common face in the next corner
 						BYTE common_face = 0;
-						while (CORNER_FACE_MAP[affected_corners[next_corner_idx]][common_face] != affected_face) 
+						while (CORNER_FACE_MAP[affected_corners[next_corner_idx]][common_face] != affected_face)
 							common_face++;
 
 						// Get the face mapping of the current corner
@@ -446,13 +481,13 @@ namespace papercube {
 						// Rotate current corner and buffer corner until the indices of the common face match
 						while (current_corner[common_face] != affected_face) {
 							buffer_corner.rotate();
-							std::rotate(current_corner.rbegin(), current_corner.rbegin()+1, current_corner.rend());
+							std::rotate(current_corner.rbegin(), current_corner.rbegin() + 1, current_corner.rend());
 						}
-						
+
 						// Color of the faces of the next corner 
 						BYTE face1 = current_corner[(common_face + 1) % 3],
 							face2 = current_corner[(common_face + 2) % 3];
-						
+
 						// Determine face1 of next corner
 						do {
 							face1 = (face1 + dir + 6) % 6;
@@ -461,12 +496,12 @@ namespace papercube {
 						// Determine face2 of next corner
 						do {
 							face2 = (face2 + dir + 6) % 6;
-						} while (face2 == affected_face || face2 == (affected_face + 3) % 6 || face1==face2);
+						} while (face2 == affected_face || face2 == (affected_face + 3) % 6 || face1 == face2);
 
 						// Check if the next corner is at the correct index
 						if (CORNER_FACE_MAP[affected_corners[next_corner_idx]][(common_face + 1) % 3] == face1 &&
 							CORNER_FACE_MAP[affected_corners[next_corner_idx]][(common_face + 2) % 3] == face2) break;
-						
+
 						// If not increment next corner
 						next_corner_idx = (next_corner_idx + 1) % 4;
 						// Restore buffer
@@ -478,7 +513,7 @@ namespace papercube {
 					auto temp = this->corners[affected_corners[next_corner_idx]];
 					this->corners[affected_corners[next_corner_idx]] = buffer_corner;
 					buffer_corner = temp;
-					
+
 					// Update current corner idx
 					current_corner_idx = next_corner_idx;
 					// Increment next corner idx
@@ -606,32 +641,18 @@ namespace papercube {
 
 			// Middle layers
 			else {
-				// Axial faces: the two faces through which the axis is passing through
-				const std::array<BYTE, 2> axial_faces = { (5 - 2 * axis) % 6, (8 - 2 * axis) % 6 };
-				std::cout << COLOR_MAP[axial_faces[0]] << COLOR_MAP[axial_faces[1]] << std::endl;
 
-				// Parallel faces: includes all 4 faces parallel to the axis of rotation
-				const std::array<BYTE, 4> parallel_faces = [axial_faces] {
-					BYTE k = 0;
-					std::array<BYTE, 4> temp_faces;
-					for (BYTE& face : temp_faces) {
-						if ((k == axial_faces[0]) || (k == axial_faces[1]))  k++;
-						face = k++;
-					}
-					return temp_faces;
-					}();
-				for (const auto& face : parallel_faces) std::cout << COLOR_MAP[face] << std::endl;
-
+				/// Rotate/swap the edges
 				// Get indices of affected edges
-				const std::array<SIZE, 4> affected_edges = [axial_faces] {
+				const std::array<SIZE, 4> affected_edges = [parallel_faces] {
 					std::array<SIZE, 4> temp_edges{ {0,0,0,0} };
 					int k = 0;
 					for (int i = 0; i < EDGE_FACE_MAP.size(); i++) {
 						// Flag to check if this is the affected edge
 						bool affectedEdge = true;
 						for (const auto& face : EDGE_FACE_MAP[i])
-							affectedEdge = affectedEdge && !(face == axial_faces[0] || face == axial_faces[1]);
-
+							affectedEdge = affectedEdge &&
+							(std::find(parallel_faces.begin(), parallel_faces.end(), face) != parallel_faces.end());
 						// If this edge is the affected edge add it to the array
 						if (affectedEdge) {
 							assert((k < 4) && "Index out of bounds");
@@ -661,7 +682,7 @@ namespace papercube {
 
 						// Faces of next edge
 						BYTE face0 = (current_edge_grp[0] + dir + 6) % 6, face1 = (current_edge_grp[1] + dir + 6) % 6;
-						while (face0 == axial_faces[0] || face0 == axial_faces[1]) face0 = (face0 + dir + 6) % 6; 
+						while (face0 == axial_faces[0] || face0 == axial_faces[1]) face0 = (face0 + dir + 6) % 6;
 						while (face1 == axial_faces[0] || face1 == axial_faces[1] || face0 == face1) face1 = (face1 + dir + 6) % 6;
 
 						// If next edge pointer matches the correct next edge
@@ -692,7 +713,51 @@ namespace papercube {
 					// Increment next edge idx
 					next_edge_grp_idx = (next_edge_grp_idx + 1) % 4;
 				}
+
+				/// Rotate/swap the center pieces
+				// The top face would be the face that comes before the current face
+
+				// Buffer to hold the center pieces before changing them
+				std::unique_ptr<Center[]> buffer_center_pieces = std::make_unique<Center[]>((this->N - 2));
+				auto top_face = (parallel_faces[0] + 5) % 6;
+				int i, j;
+				i = j = move.layer - 1;
+				// If top face is axial rotate column else rotate row
+				int* loop = (std::find(axial_faces.begin(), axial_faces.end(), top_face) == axial_faces.end()) ? &i : &j;
+
+				// Initialize buffer
+				for (*loop = 0; *loop < N - 2; (*loop)++) {
+					buffer_center_pieces[*loop] = this->centers[parallel_faces[0] * (this->N - 2) * (this->N - 2) 
+						+ (this->N - 2) * i + j];
+				}
+				BYTE next_face_idx = 0;
+				for (int k = 0; k < 4; k++) {
+					next_face_idx = (next_face_idx + 4 + dir) % 4;
+					i = j = move.layer - 1;
+					top_face = (parallel_faces[next_face_idx] + 5) % 6;
+
+					// If the top face is the one in which is on the end layer (+ve side of the axis)
+					// Then the non-looping index will be taken from the opposite side
+					if (top_face == axial_faces[1]) i = j = N - 2 - move.layer;
+
+					// If top face is axial rotate column else rotate row else rotate column
+					loop = (std::find(axial_faces.begin(), axial_faces.end(), top_face) == axial_faces.end()) ? &i : &j;
+
+					// Swap buffer with next center pieces
+					for (*loop = 0; *loop < N - 2; (*loop)++) {
+						std::swap(
+							buffer_center_pieces[*loop], 
+							this->centers[parallel_faces[next_face_idx] * (this->N - 2) * (this->N - 2) 
+							+ (this->N - 2) * i + j]
+						);
+						std::cout << "(" << i << " " << j << " " << *loop << ")" << " ";
+					}
+					std::cout << (std::find(axial_faces.begin(), axial_faces.end(), top_face) == axial_faces.end()) << " "
+						<< COLOR_MAP[top_face] << " " 
+						<< COLOR_MAP[parallel_faces[next_face_idx]] << std::endl;
+				}
 			}
+		
 		}
 
 		State state() const { return State(N, corners, edges, centers); }
@@ -731,17 +796,7 @@ int main() {
 	//std::cout << "\nState of c3:" << std::endl;
 	//c3_state.print();
 	//assert(c3_state.is_solved()); 
-
-	//std::cout << "\nCreating Cube of Size 4" << std::endl;
-	papercube::Cube c4(4);
-	//assert(c4.size() == 4);
-	//assert(c4.is_solved());
-	//std::cout << "Cube of Size 4, created successfully!" << std::endl;
-
-	//std::cout << "\nGetting Cube State" << std::endl;
-	//auto c4_state = c4.state();
-	//assert(c4_state.is_solved()); 
-	//std::cout << "\nFace 2 of State of c4:" << std::endl;
+	//std::cout << "\nFace 2 of State of c3:" << std::endl;
 	//c3_state.print_face(2);
 
 	//std::cout << "\nCreating Cube of Size 10" << std::endl;
@@ -755,10 +810,22 @@ int main() {
 	//assert(c10_state.is_solved()); 
 	//std::cout << "\nState of c10:" << std::endl;
 	//c10_state.print();
-	c4.state().print();
+
+	std::cout << "\nCreating Cube of Size 4" << std::endl;
+	papercube::Cube c4(4);
+	assert(c4.size() == 4);
+	assert(c4.is_solved());
+	std::cout << "Cube of Size 4, created successfully!" << std::endl;
+
+	std::cout << "\nGetting Cube State" << std::endl;
+	auto c4_state = c4.state();
+	assert(c4_state.is_solved()); 
+	std::cout << "Rotate c4: X, CCW, 2" << std::endl;
 	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::X, papercube::Cube::Direction::CCW, 2));
+	std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
 	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 3));
-	//c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 0));
+	std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
+	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CCW, 0));
 	c4.state().print();
 
 	return 0;
