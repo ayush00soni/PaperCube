@@ -6,6 +6,7 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <vector>
 
@@ -186,7 +187,7 @@ namespace papercube {
 			return temp;
 			} ();
 
-		// Internal Data Structures for Cube pieces
+		/// Internal Data Structures for Cube pieces
 		struct Corner {
 			BYTE color;
 			Corner() : color(0) {}
@@ -245,6 +246,7 @@ namespace papercube {
 			Center() : color(0) {}
 			explicit Center(BYTE color) : color(color) { assert((color < 6) && "Invalid color code!"); }
 		};
+
 		/// Helper functions
 		// Throw an exception if the input size N is less than 2
 		static SIZE validate_size(SIZE N) {
@@ -346,7 +348,6 @@ namespace papercube {
 			N(validate_size(N)),
 			centers(std::make_unique<Center[]>(6 * (N - 2) * (N - 2))),
 			edges(std::make_unique<Edge[]>(12 * (N - 2))) {
-
 			// Initialize centers
 			for (BYTE face = 0; face < 6; face++) {
 				for (SIZE facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
@@ -368,8 +369,18 @@ namespace papercube {
 			}
 		}
 
-
-		
+		// Deep copy constructor
+		Cube(const Cube& other) :
+			N(validate_size(other.N)),
+			centers(std::make_unique<Center[]>(6 * (N - 2) * (N - 2))),
+			edges(std::make_unique<Edge[]>(12 * (N - 2))),
+			corners(other.corners),
+			move_history(other.move_history) {
+			// Copy center pieces
+			std::copy(other.centers.get(), other.centers.get() + (6 * (N - 2) * (N - 2)), this->centers.get());
+			// Copy edge pieces
+			std::copy(other.edges.get(), other.edges.get() + (12 * (N - 2)), this->edges.get());
+		}
 
 		class State {
 		private:
@@ -386,6 +397,15 @@ namespace papercube {
 
 			friend class Cube;
 		public:
+			bool operator== (const State& other) const {
+				if (this->N != other.N) return false;
+				return this->facelets == other.facelets;
+			}
+
+			bool operator!= (const State& other) const {
+				return !(*this == other);
+			}
+
 			char at(SIZE face, SIZE row, SIZE col) const {
 				assert((face < 6) && (row < N) && (col < N) && "Index out of range!");
 				if (!((face < 6) && (row < N) && (col < N)))
@@ -773,6 +793,25 @@ namespace papercube {
 			this->apply_move(Move::from_action_index(action_idx, this->N));
 		}
 
+		void apply_move_list(const std::vector<Move>& move_list) {
+			for (const auto& move : move_list) this->apply_move(move);
+		}
+
+		void apply_move_list(const std::vector<SIZE>& action_idx_list) {
+			for (const auto& action_idx : action_idx_list) this->apply_move(action_idx);
+		}
+
+		const std::vector<Move>& get_move_history() const { return move_history; }
+
+		void scramble(SIZE num) {
+			std::random_device rd;
+			std::mt19937 gen(rd());
+			std::uniform_int_distribution<SIZE> dist(0, 6 * N - 1);
+			for (SIZE i = 0; i < num; i++) {
+				this->apply_move(dist(gen));
+			}
+		}
+
 		State state() const { return State(N, corners, edges, centers); }
 
 		SIZE size() const { return N; }
@@ -824,13 +863,22 @@ int main() {
 	std::cout << "\nGetting Cube State" << std::endl;
 	auto c4_state = c4.state();
 	assert(c4_state.is_solved()); 
-	std::cout << "Rotate c4: X, CCW, 2" << std::endl;
-	c4.apply_move(papercube::Move(papercube::Axis::X, papercube::Direction::CCW, 2));
-	std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
-	c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 3));
-	std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
-	c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 0));
-	c4.state().print();
+	//std::cout << "Rotate c4: X, CCW, 2" << std::endl;
+	//c4.apply_move(papercube::Move(papercube::Axis::X, papercube::Direction::CCW, 2));
+	//std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
+	//c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 3));
+	//std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
+	//c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 0));
+	auto c4_copy(c4);
+	std::cout << "Copy of c4: " << std::endl;
+	assert((c4_copy.state() == c4_state) && "Deep copy failed!");
 
+	std::cout << "Scramble c4" << std::endl;
+	c4.scramble(5);
+	c4.state().print();
+	std::cout << "c3 move history" << std::endl;
+	for (const auto& move : c4.get_move_history()) {
+		std::cout << static_cast<int>(move.axis) << " " << static_cast<int>(move.direction) << " " << move.layer << std::endl;
+	}
 	return 0;
 }
