@@ -14,21 +14,53 @@ namespace papercube {
 	using BYTE = std::uint8_t;
 	using SIZE = std::size_t;
 
+	/// Move Configurations
+	// Axis of Move ― X | Y | Z
+	// X (0) -> Axis from face 5 (-X, left) to face 2 (+X, right)
+	// Y (1) -> Axis from face 3 (-Y, down) to face 0 (+Y, up)
+	// Z (2) -> Axis from face 1 (-Z, front) to face 4 (+Z, back)
+	enum class Axis : BYTE { X = 0, Y = 1, Z = 2 }; 
+
+	// Direction of Move ― Clockwise | Counter-Clockwise
+	enum class Direction : signed char { CCW = 1, CW = -1 };
+
+	enum class Color : BYTE {WHITE = 0, BLUE = 1, ORANGE = 2, YELLOW = 3, GREEN = 4, RED = 5};
+	enum class Face : BYTE {UP = 0, FRONT = 1, RIGHT = 2, DOWN = 3, BACK = 4, LEFT = 5};
+
+	struct Move {
+		const Axis axis;
+		const Direction direction;
+		const SIZE layer;
+
+		Move(
+			const Axis axis,
+			const Direction direction,
+			const SIZE layer
+		) : axis(axis), direction(direction), layer(layer) {
+		}
+
+		// Action index = Layer + Direction (0:CW or 1:CCW) * N + Axis * 2N 
+		static Move from_action_index(SIZE action_idx, SIZE N) {
+			if (!is_valid_action_idx(action_idx, N)) throw std::out_of_range("Action index out of range!");
+			return Move(
+				static_cast<Axis>(action_idx / (2 * N)),
+				((action_idx / N) % 2 == 0) ? Direction::CW : Direction::CCW,
+				action_idx % N
+			);
+		}
+
+		static bool is_valid_action_idx(SIZE action_idx, SIZE N) { return action_idx < 6 * N; }
+
+		Move inverse() {
+			return Move(
+				this->axis,
+				(this->direction == Direction::CCW) ? Direction::CW : Direction::CCW,
+				this->layer
+			);
+		}
+	};
+
 	class Cube {
-	public:
-		/// Move Configurations
-		// Axis of Move ― X | Y | Z
-		// X (0) -> Axis from face 5 (-X, left) to face 2 (+X, right)
-		// Y (1) -> Axis from face 3 (-Y, down) to face 0 (+Y, up)
-		// Z (2) -> Axis from face 1 (-Z, front) to face 4 (+Z, back)
-		enum class Axis : BYTE { X = 0, Y = 1, Z = 2 }; 
-
-		// Direction of Move ― Clockwise | Counter-Clockwise
-		enum class Direction : signed char { CCW = 1, CW = -1 };
-
-		// Declaration for the Move struct
-		struct Move; 
-
 	private:
 		const SIZE N;
 
@@ -250,10 +282,6 @@ namespace papercube {
 			for (int i = 0; i < 12; i++) {
 				for (int j = 0; j < 2; j++) {
 					SIZE x = N, y = N;
-					if (Cube::EDGE_FACE_MAP[i][j] == 5)
-						std::cout << "Edge " << Cube::COLOR_MAP[Cube::EDGE_FACE_MAP[i][(j + 1) % 2]] << " "
-						<< static_cast<int>(EDGE_POS_MAP[i][j]) << " "
-						<< Cube::COLOR_MAP[Cube::EDGE_FACE_MAP[i][j]] << std::endl;
 						
 					switch (EDGE_POS_MAP[i][j]) {
 					case 0:
@@ -282,11 +310,6 @@ namespace papercube {
 			for (int i = 0; i < 8; i++) {
 				for (int j = 0; j < 3; j++) {
 					SIZE x = N, y = N;
-					if (Cube::CORNER_FACE_MAP[i][j] == 5)
-						std::cout << "Corner " << Cube::COLOR_MAP[Cube::CORNER_FACE_MAP[i][(j + 1) % 3]] << " "
-						<< Cube::COLOR_MAP[Cube::CORNER_FACE_MAP[i][(j + 2) % 3]] << " "
-						<< static_cast<int>(CORNER_POS_MAP[i][j]) << " "
-						<< Cube::COLOR_MAP[Cube::CORNER_FACE_MAP[i][j]] << std::endl;
 
 					switch (CORNER_POS_MAP[i][j]) {
 					case 0:
@@ -318,8 +341,6 @@ namespace papercube {
 		// To store every move made on the cube
 		std::vector<Move> move_history;
 
-
-
 	public:
 		Cube(SIZE N) :
 			N(validate_size(N)),
@@ -347,25 +368,8 @@ namespace papercube {
 			}
 		}
 
-		struct Move {
-			const Axis axis;
-			const Direction direction;
-			const SIZE layer;
 
-			Move(
-				const Axis axis, 
-				const Direction direction, 
-				const SIZE layer
-			) : axis(axis), direction(direction), layer(layer) {}
-
-			Move inverse() {
-				return Move(
-					this->axis,
-					(this->direction == Direction::CCW) ? Direction::CW : Direction::CCW,
-					this->layer
-				);
-			}
-		};
+		
 
 		class State {
 		private:
@@ -389,6 +393,12 @@ namespace papercube {
 				return Cube::COLOR_MAP[facelets[col + N * row + N * N * face]];
 			}
 
+			const std::vector<BYTE>& get_raw_data() const { return this->facelets; }
+
+			bool is_solved() const {
+				return Cube::facelets_solved(this->facelets, this->N);
+			}
+
 			// Print specific face
 			void print_face(int face) const {
 				for (SIZE i = 0; i < N; i++) {
@@ -398,12 +408,7 @@ namespace papercube {
 				}
 			} 
 
-			bool is_solved() const {
-				return Cube::facelets_solved(this->facelets, this->N);
-			}
-
-			SIZE size() const { return N; }
-
+			// Print the complete cube
 			void print() const {
 				for (BYTE face = 0; face < 6; face++) {
 					for (SIZE i = 0; i < N; i++) {
@@ -414,10 +419,20 @@ namespace papercube {
 					std::cout << std::endl;
 				}
 			}
+
+			SIZE size() const { return N; }
 		};
 
+		bool is_valid_move(const Move& move) const {
+			return (move.layer < this->N);
+		}
+
+		bool is_valid_action_idx(SIZE action_idx) const {
+			return Move::is_valid_action_idx(action_idx, this->N);
+		}
+
 		void apply_move(const Move& move) {
-			if (!(move.layer < this->N)) throw std::invalid_argument("Cube::apply_move - Move.layer should be less than size of cube!");
+			if (!(this->is_valid_move(move))) throw std::invalid_argument("Cube::apply_move - Move.layer should be less than size of cube!");
 			move_history.push_back(move);
 
 
@@ -432,7 +447,6 @@ namespace papercube {
 
 			// Parallel faces: includes all 4 faces parallel to the axis of rotation			
 			const auto& parallel_faces = PARALLEL_FACE_GRPS[axis];
-			for (const auto& face : parallel_faces) std::cout << COLOR_MAP[face] << std::endl;
 
 			// TODO: Write the logic for applying the move
 
@@ -657,13 +671,10 @@ namespace papercube {
 						if (affectedEdge) {
 							assert((k < 4) && "Index out of bounds");
 							temp_edges[k++] = i;
-							std::cout << COLOR_MAP[EDGE_FACE_MAP[i][0]]
-								<< COLOR_MAP[EDGE_FACE_MAP[i][1]] << std::endl;
 						}
 					}
 					return temp_edges;
 					} ();
-				for (const auto& edge : affected_edges) std::cout << edge << std::endl;
 
 				// Buffer to hold the value of an edge before changing it
 				auto buffer_edge = this->edges[affected_edges[0] * (N - 2) + move.layer - 1];
@@ -751,82 +762,74 @@ namespace papercube {
 							this->centers[parallel_faces[next_face_idx] * (this->N - 2) * (this->N - 2) 
 							+ (this->N - 2) * i + j]
 						);
-						std::cout << "(" << i << " " << j << " " << *loop << ")" << " ";
 					}
-					std::cout << (std::find(axial_faces.begin(), axial_faces.end(), top_face) == axial_faces.end()) << " "
-						<< COLOR_MAP[top_face] << " " 
-						<< COLOR_MAP[parallel_faces[next_face_idx]] << std::endl;
 				}
 			}
 		
+		}
+
+		void apply_move(const SIZE& action_idx) {
+			if (!this->is_valid_action_idx(action_idx)) throw std::out_of_range("Action index out of range!");
+			this->apply_move(Move::from_action_index(action_idx, this->N));
 		}
 
 		State state() const { return State(N, corners, edges, centers); }
 
 		SIZE size() const { return N; }
 
-		// TODO: Try to optimize so you don't need to call get state to check if the cube is solved
-		bool is_solved() const {
-			auto facelets = get_facelets(N, corners, edges, centers);
-			return facelets_solved(facelets, this->N);
-		}
-
 	};
 }
 
 // For testing and debugging only, should be removed in the finished project.
 int main() {
-	//try {
-	//	papercube::Cube c1(1);
-	//	assert(false && "Expected invalid_argument exception, but none thrown");
-	//}
-	//catch (const std::invalid_argument& e) {
-	//	std::cout << "Cube of size 1 not created" << std::endl;
-	//}
-	//catch (...) {
-	//	assert(false && "Wrong exception thrown");
-	//}
-	//std::cout << "\nCreating Cube of Size 3" << std::endl;
-	//papercube::Cube c3(3);
-	//assert(c3.size() == 3);
-	//assert(c3.is_solved());
-	//std::cout << "Cube of Size 3, created successfully!" << std::endl;
+	try {
+		papercube::Cube c1(1);
+		assert(false && "Expected invalid_argument exception, but none thrown");
+	}
+	catch (const std::invalid_argument& e) {
+		std::cout << "Cube of size 1 not created" << std::endl;
+	}
+	catch (...) {
+		assert(false && "Wrong exception thrown");
+	}
+	std::cout << "\nCreating Cube of Size 3" << std::endl;
+	papercube::Cube c3(3);
+	assert(c3.size() == 3);
+	std::cout << "Cube of Size 3, created successfully!" << std::endl;
 
-	//std::cout << "\nGetting Cube State" << std::endl;
-	//auto c3_state = c3.state();
-	//std::cout << "\nState of c3:" << std::endl;
-	//c3_state.print();
-	//assert(c3_state.is_solved()); 
-	//std::cout << "\nFace 2 of State of c3:" << std::endl;
-	//c3_state.print_face(2);
+	std::cout << "\nGetting Cube State" << std::endl;
+	auto c3_state = c3.state();
+	std::cout << "\nState of c3:" << std::endl;
+	c3_state.print();
+	assert(c3_state.is_solved()); 
+	std::cout << "\nFace 2 of State of c3:" << std::endl;
+	c3_state.print_face(2);
 
-	//std::cout << "\nCreating Cube of Size 10" << std::endl;
-	//papercube::Cube c10(10);
-	//assert(c10.size() == 10);
-	//assert(c10.is_solved()); 
-	//std::cout << "Cube of Size 10, created successfully!" << std::endl;
+	std::cout << "\nCreating Cube of Size 10" << std::endl;
+	papercube::Cube c10(10);
+	assert(c10.size() == 10);
+	std::cout << "Cube of Size 10, created successfully!" << std::endl;
 
-	//std::cout << "\nGetting Cube State" << std::endl;
-	//auto c10_state = c10.state();
-	//assert(c10_state.is_solved()); 
-	//std::cout << "\nState of c10:" << std::endl;
-	//c10_state.print();
+	std::cout << "\nGetting Cube State" << std::endl;
+	auto c10_state = c10.state();
+	assert(c10_state.is_solved()); 
+	std::cout << "\nState of c10:" << std::endl;
+	c10_state.print();
 
 	std::cout << "\nCreating Cube of Size 4" << std::endl;
 	papercube::Cube c4(4);
 	assert(c4.size() == 4);
-	assert(c4.is_solved());
 	std::cout << "Cube of Size 4, created successfully!" << std::endl;
 
 	std::cout << "\nGetting Cube State" << std::endl;
 	auto c4_state = c4.state();
 	assert(c4_state.is_solved()); 
-	//std::cout << "Rotate c4: X, CCW, 2" << std::endl;
-	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::X, papercube::Cube::Direction::CCW, 2));
+	std::cout << "Rotate c4: X, CCW, 2" << std::endl;
+	c4.apply_move(papercube::Move(papercube::Axis::X, papercube::Direction::CCW, 2));
 	std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
-	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CW, 3));
+	c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 3));
 	std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
-	c4.apply_move(papercube::Cube::Move(papercube::Cube::Axis::Y, papercube::Cube::Direction::CW, 0));
+	c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 0));
 	c4.state().print();
 
 	return 0;
