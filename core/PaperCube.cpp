@@ -443,9 +443,7 @@ namespace papercube {
 			SIZE size() const { return N; }
 		};
 
-		bool is_valid_move(const Move& move) const {
-			return (move.layer < this->N);
-		}
+		bool is_valid_move(const Move& move) const { return (move.layer < this->N); }
 
 		bool is_valid_action_idx(SIZE action_idx) const {
 			return Move::is_valid_action_idx(action_idx, this->N);
@@ -467,8 +465,6 @@ namespace papercube {
 
 			// Parallel faces: includes all 4 faces parallel to the axis of rotation			
 			const auto& parallel_faces = PARALLEL_FACE_GRPS[axis];
-
-			// TODO: Write the logic for applying the move
 
 			// End Layers
 			if (move.layer == 0 || move.layer == N - 1) {
@@ -675,7 +671,6 @@ namespace papercube {
 
 			// Middle layers
 			else {
-
 				/// Rotate/swap the edges
 				// Get indices of affected edges
 				const std::array<SIZE, 4> affected_edges = [parallel_faces] {
@@ -747,10 +742,10 @@ namespace papercube {
 				}
 
 				/// Rotate/swap the center pieces
-				// The top face would be the face that comes before the current face
-
 				// Buffer to hold the center pieces before changing them
 				std::unique_ptr<Center[]> buffer_center_pieces = std::make_unique<Center[]>((this->N - 2));
+
+				// The top face would be the face that comes before the current face
 				auto top_face = (parallel_faces[0] + 5) % 6;
 				int i, j;
 				i = j = move.layer - 1;
@@ -793,15 +788,39 @@ namespace papercube {
 			this->apply_move(Move::from_action_index(action_idx, this->N));
 		}
 
-		void apply_move_list(const std::vector<Move>& move_list) {
-			for (const auto& move : move_list) this->apply_move(move);
+		void apply_move_sequence(const std::vector<Move>& move_seq) {
+			for (const auto& move : move_seq) this->apply_move(move);
 		}
 
-		void apply_move_list(const std::vector<SIZE>& action_idx_list) {
-			for (const auto& action_idx : action_idx_list) this->apply_move(action_idx);
+		void apply_move_sequence(const std::vector<SIZE>& action_idx_seq) {
+			for (const auto& action_idx : action_idx_seq) this->apply_move(action_idx);
 		}
 
 		const std::vector<Move>& get_move_history() const { return move_history; }
+
+		void reset() {
+			this->move_history.clear();
+			this->move_history.shrink_to_fit();
+			// Reset centers
+			for (BYTE face = 0; face < 6; face++) {
+				for (SIZE facelet = 0; facelet < (N - 2) * (N - 2); facelet++) {
+					centers[(N - 2) * (N - 2) * face + facelet] = Center(face);
+				}
+			}
+
+			// Reset Edges
+			SIZE k = 0;
+			for (const auto& edge : EDGE_FACE_MAP) {
+				for (SIZE i = 0; i < N - 2; i++) {
+					assert(k < (12 * (N - 2)) && "edges initialization, index out of bounds!");
+					this->edges[k++] = Edge(edge);
+				}
+			}
+			// Reset Corners
+			for (int i = 0; i < 8; i++) {
+				this->corners[i] = Corner(CORNER_FACE_MAP[i]);
+			}
+		}
 
 		void scramble(SIZE num) {
 			std::random_device rd;
@@ -821,39 +840,39 @@ namespace papercube {
 
 // For testing and debugging only, should be removed in the finished project.
 int main() {
-	try {
-		papercube::Cube c1(1);
-		assert(false && "Expected invalid_argument exception, but none thrown");
-	}
-	catch (const std::invalid_argument& e) {
-		std::cout << "Cube of size 1 not created" << std::endl;
-	}
-	catch (...) {
-		assert(false && "Wrong exception thrown");
-	}
-	std::cout << "\nCreating Cube of Size 3" << std::endl;
-	papercube::Cube c3(3);
-	assert(c3.size() == 3);
-	std::cout << "Cube of Size 3, created successfully!" << std::endl;
+	//try {
+	//	papercube::Cube c1(1);
+	//	assert(false && "Expected invalid_argument exception, but none thrown");
+	//}
+	//catch (const std::invalid_argument& e) {
+	//	std::cout << "Cube of size 1 not created" << std::endl;
+	//}
+	//catch (...) {
+	//	assert(false && "Wrong exception thrown");
+	//}
+	//std::cout << "\nCreating Cube of Size 3" << std::endl;
+	//papercube::Cube c3(3);
+	//assert(c3.size() == 3);
+	//std::cout << "Cube of Size 3, created successfully!" << std::endl;
 
-	std::cout << "\nGetting Cube State" << std::endl;
-	auto c3_state = c3.state();
-	std::cout << "\nState of c3:" << std::endl;
-	c3_state.print();
-	assert(c3_state.is_solved()); 
-	std::cout << "\nFace 2 of State of c3:" << std::endl;
-	c3_state.print_face(2);
+	//std::cout << "\nGetting Cube State" << std::endl;
+	//auto c3_state = c3.state();
+	//std::cout << "\nState of c3:" << std::endl;
+	//c3_state.print();
+	//assert(c3_state.is_solved()); 
+	//std::cout << "\nFace 2 of State of c3:" << std::endl;
+	//c3_state.print_face(2);
 
-	std::cout << "\nCreating Cube of Size 10" << std::endl;
-	papercube::Cube c10(10);
-	assert(c10.size() == 10);
-	std::cout << "Cube of Size 10, created successfully!" << std::endl;
+	//std::cout << "\nCreating Cube of Size 10" << std::endl;
+	//papercube::Cube c10(10);
+	//assert(c10.size() == 10);
+	//std::cout << "Cube of Size 10, created successfully!" << std::endl;
 
-	std::cout << "\nGetting Cube State" << std::endl;
-	auto c10_state = c10.state();
-	assert(c10_state.is_solved()); 
-	std::cout << "\nState of c10:" << std::endl;
-	c10_state.print();
+	//std::cout << "\nGetting Cube State" << std::endl;
+	//auto c10_state = c10.state();
+	//assert(c10_state.is_solved()); 
+	//std::cout << "\nState of c10:" << std::endl;
+	//c10_state.print();
 
 	std::cout << "\nCreating Cube of Size 4" << std::endl;
 	papercube::Cube c4(4);
@@ -863,22 +882,34 @@ int main() {
 	std::cout << "\nGetting Cube State" << std::endl;
 	auto c4_state = c4.state();
 	assert(c4_state.is_solved()); 
-	//std::cout << "Rotate c4: X, CCW, 2" << std::endl;
-	//c4.apply_move(papercube::Move(papercube::Axis::X, papercube::Direction::CCW, 2));
-	//std::cout << "Rotate c4: Y, CCW, 3" << std::endl;
-	//c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 3));
-	//std::cout << "Rotate c4: Y, CCW, 0" << std::endl;
-	//c4.apply_move(papercube::Move(papercube::Axis::Y, papercube::Direction::CW, 0));
 	auto c4_copy(c4);
 	std::cout << "Copy of c4: " << std::endl;
 	assert((c4_copy.state() == c4_state) && "Deep copy failed!");
 
-	std::cout << "Scramble c4" << std::endl;
-	c4.scramble(5);
+	//std::cout << "Scramble c4" << std::endl;
+	//c4.scramble(5);
+
+	std::vector<size_t> test_actions = { 1, 18, 20, 7, 9 };
+	c4.apply_move_sequence(test_actions);
 	c4.state().print();
-	std::cout << "c3 move history" << std::endl;
-	for (const auto& move : c4.get_move_history()) {
+	std::cout << "c4 move history" << std::endl;
+	auto c4_move_history = c4.get_move_history();
+	for (const auto& move : c4_move_history) {
 		std::cout << static_cast<int>(move.axis) << " " << static_cast<int>(move.direction) << " " << move.layer << std::endl;
 	}
+	std::cout << "c4 move history size " << c4.get_move_history().size() << std::endl;
+	std::cout << "c4 move history capacity " << c4.get_move_history().capacity() << std::endl;
+
+	std::cout << "c4 move history inverse" << std::endl;
+	std::for_each(c4_move_history.rbegin(), c4_move_history.rend(), [](auto move) {
+		auto move_inv = move.inverse();
+		std::cout << static_cast<int>(move_inv.axis) << " " << static_cast<int>(move_inv.direction) << " " << move_inv.layer << std::endl;
+		});
+
+	std::cout << "Reset c4" << std::endl;
+	c4.reset();
+	c4.state().print();
+	std::cout << "c4 move history size " << c4.get_move_history().size() << std::endl;
+	std::cout << "c4 move history capacity " << c4.get_move_history().capacity() << std::endl;
 	return 0;
 }
