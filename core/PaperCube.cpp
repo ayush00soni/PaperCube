@@ -7,6 +7,7 @@
 #include <memory>
 #include <random>
 #include <stdexcept>
+#include <string_view>
 #include <vector>
 
 namespace papercube {
@@ -843,6 +844,16 @@ namespace papercube {
 	};
 }
 
+template<> 
+struct std::hash<papercube::Cube::State> {
+	std::size_t operator()(papercube::Cube::State const& state) const noexcept {
+		const auto& data = state.get_raw_data();
+		// Cast the raw byte vector to a string_view for blazing fast standard hashing
+		std::string_view view(reinterpret_cast<const char*>(data.data()), data.size());
+		return std::hash<std::string_view>{}(view);
+	}
+};
+
 // For testing and debugging only, should be removed in the finished project.
 int main() {
 	try {
@@ -929,5 +940,12 @@ int main() {
 	std::cout << "c4 move history size " << c4.get_move_history().size() << std::endl
 		<< "c4 move history capacity " << c4.get_move_history().capacity() << std::endl
 		<< "c4_copy.state() == c4.state() " << (c4_copy.state() == c4.state()) << std::endl;
+	const auto c4_hash = std::hash<papercube::Cube::State>{}(c4.state());
+	const auto c4_copy_hash = std::hash<papercube::Cube::State>{}(c4_copy.state());
+	const auto c3_state_hash = std::hash<papercube::Cube::State>{}(c3_state);
+	std::cout << "c4.state() hash " << c4_hash << std::endl
+		<< "c4_copy.state() hash " << c4_copy_hash << std::endl
+		<< "c3_state hash " << c3_state_hash << std::endl;
+
 	return 0;
 }
