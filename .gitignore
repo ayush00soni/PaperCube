@@ -1,2 +1,33 @@
-/.vs
-/out
+# Visual Studio specific
+/.vs/
+*.user
+*.suo
+
+# CMake & Build directories
+/out/
+/build/
+CMakeCache.txt
+CMakeFiles/
+CMakeScripts/
+compile_commands.json
+
+# C++ Compiled Binaries & Object files
+*.exe
+*.lib
+*.dll
+*.a
+*.so
+*.pdb
+*.obj
+
+# Python (Crucial for the Pybind11 wrapper)
+__pycache__/
+*.pyc
+*.pyd
+/venv/
+/env/
+.pytest_cache/
+
+# OS specific hidden files
+.DS_Store
+Thumbs.db

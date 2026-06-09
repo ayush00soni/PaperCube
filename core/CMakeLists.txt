@@ -1,12 +1,9 @@
-﻿# CMakeList.txt : CMake project for PaperCube, include source and define
-# project specific logic here.
-#
+﻿# Build the core engine as a static library
+add_library(papercube_core STATIC 
+    src/cube.cpp
+)
 
-# Add source to this project's executable.
-add_executable (PaperCube "PaperCube.cpp" "PaperCube.h")
-
-if (CMAKE_VERSION VERSION_GREATER 3.12)
-  set_property(TARGET PaperCube PROPERTY CXX_STANDARD 20)
-endif()
-
-# TODO: Add tests and install targets if needed.
+# Tell consumers of this library where to find the header files
+target_include_directories(papercube_core PUBLIC 
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
