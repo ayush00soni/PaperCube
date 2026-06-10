@@ -28,7 +28,7 @@ namespace papercube {
 	struct Move {
 		/// The spatial axis of rotation (X, Y, or Z).
 		const Axis axis;
-		/// The spatial axis of rotation (X, Y, or Z).
+		/// The direction of rotation (CW or CCW).
 		const Direction direction;
 		/// The specific depth layer to rotate (0-indexed).
 		const std::size_t layer;
@@ -418,8 +418,16 @@ namespace papercube {
 	};
 }
 
+/// @brief Template specialization of std::hash for papercube::Cube::State.
+/// @details Enables State objects to be used directly as keys in standard unordered associative 
+/// containers (such as std::unordered_set and std::unordered_map) for high-performance search algorithms.
 template<>
 struct std::hash<papercube::Cube::State> {
+	/// @brief Calculates the hash value of a given Cube State.
+	/// @details Performs a highly optimized standard hash by casting the contiguous 1D array of 
+	/// facelets into a std::string_view, completely avoiding memory reallocation.
+	/// @param state The immutable state snapshot to hash.
+	/// @return A size_t representing the computed hash value.
 	std::size_t operator()(papercube::Cube::State const& state) const noexcept {
 		const auto& data = state.get_raw_data();
 		// Cast the raw byte vector to a string_view for blazing fast standard hashing
