@@ -94,3 +94,30 @@ def test_state_hashing():
     # The states should be identical, which means their hashes must match
     assert state1 == state2
     assert hash(state1) == hash(state2)
+
+def test_state_printing(capsys):
+    """Verify that the C++ print and print_face functions output correctly to standard out."""
+    c2 = papercube.Cube(2)
+    
+    # 1. Test print_face() for Face 0 (WHITE)
+    c2.state().print_face(0) 
+    
+    # Change capfd to capsys here too
+    out, err = capsys.readouterr()
+    
+    assert "W W" in out
+    assert out.count("W") == 4
+    
+    # 2. Test full print()
+    c2.state().print()
+    out, err = capsys.readouterr()
+    
+    assert "W W" in out
+    assert "B B" in out
+    assert "O O" in out
+    assert "Y Y" in out
+    assert "G G" in out
+    assert "R R" in out
+    
+    assert out.count("B") == 4
+    assert out.count("R") == 4

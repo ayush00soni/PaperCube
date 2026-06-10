@@ -1,6 +1,7 @@
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h> // CRITICAL: This allows automatic conversion between std::vector/std::span and Python lists!
 #include <papercube/cube.hpp>
+#include <pybind11/iostream.h>
+#include <pybind11/pybind11.h>
+#include <pybind11/stl.h> 
 
 namespace py = pybind11;
 
@@ -85,8 +86,11 @@ PYBIND11_MODULE(papercube, m) {
         .def("at", &papercube::Cube::State::at, py::arg("face"), py::arg("row"), py::arg("col"))
         .def("get_raw_data", &papercube::Cube::State::get_raw_data)
         .def("is_solved", &papercube::Cube::State::is_solved)
-        .def("print_face", &papercube::Cube::State::print_face, py::arg("face"))
-        .def("print", &papercube::Cube::State::print)
+        // Add the call_guard to both print functions
+        .def("print_face", &papercube::Cube::State::print_face, py::arg("face"),
+            py::call_guard<py::scoped_ostream_redirect>())
+        .def("print", &papercube::Cube::State::print,
+            py::call_guard<py::scoped_ostream_redirect>())
         .def("size", &papercube::Cube::State::size)
         // Python magic methods for equality and hashing
         .def("__eq__", [](const papercube::Cube::State& a, const papercube::Cube::State& b) { return a == b; })
