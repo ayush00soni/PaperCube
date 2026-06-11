@@ -14,6 +14,8 @@ if(MSVC)
     endif()
 endif()
 
+enable_testing()
+
 # Delegate tasks to the subdirectories
 add_subdirectory("core")
 add_subdirectory("tests")
