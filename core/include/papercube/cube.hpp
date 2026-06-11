@@ -5,6 +5,7 @@
 #include <compare>
 #include <cstdint>
 #include <functional>
+#include <iosfwd>
 #include <memory>
 #include <span>
 #include <stdexcept>
@@ -101,6 +102,14 @@ namespace papercube {
 		/// @brief Deep copy constructor.
 		/// @param other The Cube instance to copy.
 		Cube(const Cube& other);
+
+		/// @brief Stream insertion operator for the Color enum.
+		/// @details Automatically converts the Color enum to its corresponding character 
+		/// representation (e.g., 'W' for WHITE) for standard output streams.
+		/// @param os The output stream.
+		/// @param c The Color enum to print.
+		/// @return A reference to the modified output stream.
+		friend std::ostream& operator<<(std::ostream& os, const Color& c);
 
 		/// @brief Applies a specific physical rotation to the cube's internal state.
 		/// @param move The Move structure defining the rotation.
@@ -365,17 +374,23 @@ namespace papercube {
 			/// @return A constant reference to the underlying byte vector.
 			const std::vector<std::uint8_t>& get_raw_data() const { return this->facelets; }
 
-			/// @brief Looks up the color character at a specific coordinate on the cube.
-			/// @param face The specific Face of the cube (0-5).
-			/// @param row The row coordinate (0 to N-1).
-			/// @param col The column coordinate (0 to N-1).
-			/// @return A character representation of the color (e.g., 'W' for White).
-			/// @throws std::out_of_range If the face, row, or col values are out of bounds.
-			char at(std::size_t face, std::size_t row, std::size_t col) const {
-				assert((face < 6) && (row < this->N) && (col < this->N) && "Index out of range!");
-				if (!((face < 6) && (row < this->N) && (col < this->N)))
+			/// @brief Looks up the color at a specific coordinate on the cube.
+            /// @param face The specific Face of the cube.
+            /// @param row The row coordinate (0 to N-1).
+            /// @param col The column coordinate (0 to N-1).
+            /// @return The Color present at the specified location.
+            /// @throws std::out_of_range If the row or col values are out of bounds.
+			Color at(Face face, std::size_t row, std::size_t col) const {
+				assert((row < this->N) && (col < this->N) && "Index out of range!");
+				if (!((row < this->N) && (col < this->N)))
 					throw std::out_of_range("Cube::State::at - Index out of range!");
-				return Cube::COLOR_MAP[facelets[col + this->N * row + this->N * this->N * face]];
+				return static_cast<Color>(
+					facelets[
+						col +
+						this->N * row +
+						this->N * this->N * static_cast<size_t>(face)
+					]
+					);
 			}
 
 			/// @brief Evaluates whether this specific state configuration represents a solved cube.
@@ -389,8 +404,8 @@ namespace papercube {
 			constexpr std::size_t size() const { return N; }
 
 			/// @brief Outputs a single face of the cube to standard output.
-			/// @param face The integer index of the face to print.
-			void print_face(int face) const;
+			/// @param face The specific Face enum to print.
+			void print_face(Face face) const;
 
 			/// @brief Outputs the complete layout of all 6 faces to standard output.
 			void print() const;

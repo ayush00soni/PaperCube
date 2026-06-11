@@ -6,7 +6,7 @@
 namespace py = pybind11;
 
 PYBIND11_MODULE(papercube, m) {
-    m.doc() = "A mathematically consistent N×N×N Rubik's Cube simulation library designed primarily for programmatic use by an algorithm.";
+    m.doc() = "A mathematically consistent N×N×N Rubik's Cube simulation library designed primarily for algorithmic research and development.";
 
     // ==========================================
     // 1. Bind Global Enums
@@ -87,14 +87,15 @@ PYBIND11_MODULE(papercube, m) {
     // 5. Bind Nested State Class
     // ==========================================
     py::class_<papercube::Cube::State>(cube, "State", "An immutable, hashable snapshot of a specific cube configuration.")
-        .def("at", &papercube::Cube::State::at, py::arg("face"), py::arg("row"), py::arg("col"),
-            "Looks up the color character at a specific coordinate on the cube.")
+       .def("at", static_cast<papercube::Cube::Color (papercube::Cube::State::*)(papercube::Cube::Face, std::size_t, std::size_t) const>(&papercube::Cube::State::at), 
+            py::arg("face"), py::arg("row"), py::arg("col"),
+            "Looks up the color enum at a specific coordinate on the cube.")
         .def("get_raw_data", &papercube::Cube::State::get_raw_data, "Exposes the underlying flattened 1D array of color bytes.")
         .def("is_solved", &papercube::Cube::State::is_solved, "Evaluates whether this specific state represents a solved cube.")
 
         .def("print_face", &papercube::Cube::State::print_face, py::arg("face"),
             py::call_guard<py::scoped_ostream_redirect>(),
-            "Outputs a single face of the cube to standard output.")
+            "Outputs a single face of the cube to standard output. Expects a papercube.Cube.Face enum.")
         .def("print", &papercube::Cube::State::print,
             py::call_guard<py::scoped_ostream_redirect>(),
             "Outputs the complete layout of all 6 faces to standard output.")

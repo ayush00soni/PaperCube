@@ -100,7 +100,7 @@ def test_state_printing(capsys):
     c2 = papercube.Cube(2)
     
     # 1. Test print_face() for Face 0 (WHITE)
-    c2.state().print_face(0) 
+    c2.state().print_face(papercube.Cube.Face.UP) 
     
     # Change capfd to capsys here too
     out, err = capsys.readouterr()

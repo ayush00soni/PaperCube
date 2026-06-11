@@ -5,86 +5,6 @@
 #include <vector>
 
 namespace papercube {
-	// Check if a given 2D array of facelets is of a solved Cube
-	bool Cube::facelets_solved(std::span<const std::uint8_t> facelets, std::size_t n) {
-		for (int face = 0; face < 6; face++) // For each face
-			for (int facelet = 0; facelet < n * n - 1; facelet++) // For each facelet in a face
-				if (facelets[n * n * face + facelet] != facelets[n * n * face + facelet + 1])
-					return false; // If current facelet != next facelet : return false;
-		return true;
-	}
-
-	// Convert corners, edges, and centers arrays to the flattened array (facelets)
-	std::vector<std::uint8_t> Cube::get_facelets(
-		std::size_t N,
-		const std::array<Corner, 8>& corners,
-		const std::unique_ptr<Edge[]>& edges,
-		const std::unique_ptr<Center[]>& centers
-	) {
-		std::vector<std::uint8_t> stickers(6 * N * N, 0);
-		// TODO: Replace these loops with faster lookup tables
-
-		// Assign centers in the stickers array
-		for (std::uint8_t face = 0; face < 6; face++)
-			for (std::size_t i = 0; i < (N - 2); i++)
-				for (std::size_t j = 0; j < (N - 2); j++)
-					stickers[(face * N * N) + (i + 1) * N + (j + 1)] =
-					centers[face * (N - 2) * (N - 2) + i * (N - 2) + j].color;
-
-		// Assign edges to stickers array
-		for (int i = 0; i < 12; i++) {
-			for (int j = 0; j < 2; j++) {
-				std::size_t x = N, y = N;
-
-				switch (EDGE_POS_MAP[i][j]) {
-				case 0:
-					x = 1, y = 0;
-					break;
-				case 1:
-					x = N - 1, y = 1;
-					break;
-				case 2:
-					x = 1, y = N - 1;
-					break;
-				case 3:
-					x = 0, y = 1;
-					break;
-				}
-				assert((x < N && y < N && (x == 1 || y == 1)) && "Position assignment failed");
-				auto& loop = (x == 1) ? x : y;
-				for (loop = 1; loop < N - 1; loop++) {
-					stickers[EDGE_FACE_MAP[i][j] * N * N + y * N + x] =
-						edges[i * (N - 2) + ((EDGE_GRP_ORD[EDGE_FACE_MAP[i][j]][EDGE_POS_MAP[i][j]]) ?
-							(loop - 1) : (N - 2 - loop))].get_color(j);
-				}
-			}
-		}
-		// Assign corners to stickers array
-		for (int i = 0; i < 8; i++) {
-			for (int j = 0; j < 3; j++) {
-				std::size_t x = N, y = N;
-
-				switch (CORNER_POS_MAP[i][j]) {
-				case 0:
-					x = 0, y = 0;
-					break;
-				case 1:
-					x = N - 1, y = 0;
-					break;
-				case 2:
-					x = N - 1, y = N - 1;
-					break;
-				case 3:
-					x = 0, y = N - 1;
-					break;
-				}
-				assert((x < N && y < N) && "Position assingnment failed");
-				stickers[CORNER_FACE_MAP[i][j] * N * N + y * N + x] = corners[i].get_color(j);
-			}
-		}
-		return stickers;
-	}
-
 	Cube::Cube(std::size_t N) :
 		N(validate_size(N)),
 		centers(std::make_unique<Center[]>(6 * (N - 2) * (N - 2))),
@@ -121,6 +41,20 @@ namespace papercube {
 		std::ranges::copy(std::span(other.centers.get(), 6 * (N - 2) * (N - 2)), this->centers.get());
 		// Copy edge pieces
 		std::ranges::copy(std::span(other.edges.get(), 12 * (N - 2)), this->edges.get());
+	}
+
+	// Allow Color enums to be printed directly to streams
+	std::ostream& operator<<(std::ostream& os, const Cube::Color& c) {
+		os << Cube::COLOR_MAP[static_cast<std::size_t>(c)];
+		return os;
+	}
+	// Check if a given 2D array of facelets is of a solved Cube
+	bool Cube::facelets_solved(std::span<const std::uint8_t> facelets, std::size_t n) {
+		for (int face = 0; face < 6; face++) // For each face
+			for (int facelet = 0; facelet < n * n - 1; facelet++) // For each facelet in a face
+				if (facelets[n * n * face + facelet] != facelets[n * n * face + facelet + 1])
+					return false; // If current facelet != next facelet : return false;
+		return true;
 	}
 
 		
@@ -515,7 +449,7 @@ namespace papercube {
 	}
 
 	// Print specific face
-	void Cube::State::print_face(int face) const {
+	void Cube::State::print_face(Face face) const {
 		for (std::size_t i = 0; i < N; i++) {
 			for (std::size_t j = 0; j < N; j++)
 				std::cout << this->at(face, i, j) << " ";
@@ -526,9 +460,80 @@ namespace papercube {
 	// Print the complete cube
 	void Cube::State::print() const {
 		for (std::uint8_t face = 0; face < 6; face++) {
-			this->print_face(face);
+			this->print_face(static_cast<Face>(face));
 			std::cout << std::endl;
 		}
+	}
+
+	// Convert corners, edges, and centers arrays to the flattened array (facelets)
+	std::vector<std::uint8_t> Cube::get_facelets(
+		std::size_t N,
+		const std::array<Corner, 8>& corners,
+		const std::unique_ptr<Edge[]>& edges,
+		const std::unique_ptr<Center[]>& centers
+	) {
+		std::vector<std::uint8_t> stickers(6 * N * N, 0);
+		// TODO: Replace these loops with faster lookup tables
+
+		// Assign centers in the stickers array
+		for (std::uint8_t face = 0; face < 6; face++)
+			for (std::size_t i = 0; i < (N - 2); i++)
+				for (std::size_t j = 0; j < (N - 2); j++)
+					stickers[(face * N * N) + (i + 1) * N + (j + 1)] =
+					centers[face * (N - 2) * (N - 2) + i * (N - 2) + j].color;
+
+		// Assign edges to stickers array
+		for (int i = 0; i < 12; i++) {
+			for (int j = 0; j < 2; j++) {
+				std::size_t x = N, y = N;
+
+				switch (EDGE_POS_MAP[i][j]) {
+				case 0:
+					x = 1, y = 0;
+					break;
+				case 1:
+					x = N - 1, y = 1;
+					break;
+				case 2:
+					x = 1, y = N - 1;
+					break;
+				case 3:
+					x = 0, y = 1;
+					break;
+				}
+				assert((x < N && y < N && (x == 1 || y == 1)) && "Position assignment failed");
+				auto& loop = (x == 1) ? x : y;
+				for (loop = 1; loop < N - 1; loop++) {
+					stickers[EDGE_FACE_MAP[i][j] * N * N + y * N + x] =
+						edges[i * (N - 2) + ((EDGE_GRP_ORD[EDGE_FACE_MAP[i][j]][EDGE_POS_MAP[i][j]]) ?
+							(loop - 1) : (N - 2 - loop))].get_color(j);
+				}
+			}
+		}
+		// Assign corners to stickers array
+		for (int i = 0; i < 8; i++) {
+			for (int j = 0; j < 3; j++) {
+				std::size_t x = N, y = N;
+
+				switch (CORNER_POS_MAP[i][j]) {
+				case 0:
+					x = 0, y = 0;
+					break;
+				case 1:
+					x = N - 1, y = 0;
+					break;
+				case 2:
+					x = N - 1, y = N - 1;
+					break;
+				case 3:
+					x = 0, y = N - 1;
+					break;
+				}
+				assert((x < N && y < N) && "Position assingnment failed");
+				stickers[CORNER_FACE_MAP[i][j] * N * N + y * N + x] = corners[i].get_color(j);
+			}
+		}
+		return stickers;
 	}
 }
 
