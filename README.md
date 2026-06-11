@@ -1,6 +1,6 @@
 ﻿# PaperCube
 
-A mathematically consistent N×N×N Rubik's Cube simulation library designed primarily for algorithmic research and development. 
+A mathematically consistent N×N×N Rubik's Cube simulation library designed primarily for algorithmic research and development.
 
 Built in modern C++20, PaperCube provides a highly optimized, zero-allocation math engine for Reinforcement Learning (RL) and search algorithms, coupled with native Python bindings via Pybind11.
 
@@ -20,7 +20,7 @@ The library exposes a minimal, highly optimized surface area tailored specifical
 
 ## Installation & Build
 
-PaperCube can be consumed purely as a Python library for algorithmic research, or compiled from source as a C++20 library. 
+PaperCube can be consumed purely as a Python library for algorithmic research, or compiled from source as a C++20 library.
 
 ### Python (pip)
 For Python users, PaperCube is available directly from PyPI. The installation includes pre-generated `.pyi` stubs, providing full IntelliSense and autocomplete support in modern IDEs.
@@ -43,7 +43,7 @@ PaperCube uses standard CMake. The build process automatically fetches Pybind11 
 
 ```bash
 # 1. Clone the repository
-git clone [https://github.com/ayush00soni/PaperCube.git](https://github.com/ayush00soni/PaperCube.git)
+git clone https://github.com/ayush00soni/PaperCube.git PaperCube
 cd PaperCube
 
 # 2. Build with CMake
@@ -88,15 +88,15 @@ You can easily link the core math engine (`papercube_core`) to your own C++ targ
 
 int main() {
     papercube::Cube c(4); // 4x4x4 Cube
-    
+
     // Apply a sequence using encoded action indices
     c.apply_move(4);
     c.apply_move(12);
-    
+
     if (!c.state().is_solved()) {
         std::cout << "Cube successfully scrambled.\n";
     }
-    
+
     c.reset();
     return 0;
 }
