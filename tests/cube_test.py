@@ -1,14 +1,4 @@
-import sys
-import os
 import pytest
-
-# Dynamically point Python to the MSVC CMake build output directory
-# This allows you to run this script from anywhere!
-current_dir = os.path.dirname(__file__)
-build_dir = os.path.abspath(os.path.join(current_dir, '../out/build/x64-debug/python'))
-sys.path.append(build_dir)
-
-# Now Python can find the .pyd file
 import papercube
 
 def test_cube_initialization():

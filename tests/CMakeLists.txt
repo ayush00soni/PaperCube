@@ -7,6 +7,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/google/googletest.git
   GIT_TAG        v1.14.0
 )
+
 # Make GoogleTest available to our project
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE) # Required for Windows/MSVC compatibility
 FetchContent_MakeAvailable(googletest)

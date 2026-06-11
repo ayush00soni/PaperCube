@@ -35,3 +35,11 @@ Thumbs.db
 
 # Doxygen
 /docs
+
+# Python Packaging & Distribution
+/dist/
+*.egg-info/
+
+# CMake / CTest generated logs
+/Testing/
+tests/Testing

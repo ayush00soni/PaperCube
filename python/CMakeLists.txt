@@ -14,3 +14,9 @@ pybind11_add_module(papercube
 
 # Link it to your core math engine
 target_link_libraries(papercube PRIVATE papercube_core)
+
+# Tell CMake to install the generated Python module
+install(TARGETS papercube DESTINATION .)
+
+# Install the IntelliSense stub file right next to it
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/papercube.pyi DESTINATION .)
