@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "papercube"
-version = "1.0.2"
+version = "1.0.3"
 description = "A mathematically consistent N×N×N Rubik's Cube simulation library."
 readme = "README.md"
 authors = [
@@ -17,5 +17,10 @@ dependencies = []
 Homepage = "https://github.com/ayush00soni/PaperCube"
 
 [tool.scikit-build]
-# Tell scikit-build where your main CMakeLists.txt is
+# Tell scikit-build where the main CMakeLists.txt is
 cmake.source-dir = "." 
+
+# Force CMake to use the 64-bit architecture generator
+[[tool.scikit-build.overrides]]
+if.platform-system = "win32"
+cmake.args = ["-A", "x64"]
