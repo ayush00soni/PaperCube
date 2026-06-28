@@ -1,8 +1,8 @@
 ﻿#include "papercube/cube.hpp"
+#include <algorithm>
 #include <iostream>
 #include <random>
 #include <ranges>
-#include <vector>
 
 namespace papercube {
 	Cube::Cube(std::size_t N) :

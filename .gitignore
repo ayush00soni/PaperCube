@@ -3,6 +3,9 @@
 *.user
 *.suo
 
+# Visual Studio Code specific
+/.vscode/
+
 # CMake & Build directories
 /out/
 /build/
@@ -24,7 +27,7 @@ compile_commands.json
 __pycache__/
 *.pyc
 *.pyd
-/venv/
+/.venv/
 /env/
 .pytest_cache/
 /TestResults

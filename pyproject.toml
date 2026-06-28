@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "papercube"
-version = "1.0.3"
+version = "1.0.4"
 description = "A mathematically consistent N×N×N Rubik's Cube simulation library."
 readme = "README.md"
 authors = [

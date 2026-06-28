@@ -107,15 +107,24 @@ int main() {
 
 PaperCube includes a rigorous, mathematically verified test suite across both environments.
 
+### C++ GoogleTests
 ```bash
 # Run C++ GoogleTests
 cd build
 ctest --output-on-failure
 
-# Run Python Pytests
-cd ..
-pytest tests/
+```
 
+### Python Pytests
+To run the Python tests from the source code, you must first install the package locally along with the testing framework.
+
+```bash
+# Install pytest and build the PaperCube library locally
+pip install pytest
+pip install .
+
+# Run the test suite
+python -m pytest tests/
 ```
 
 ## Upcoming Features (Future Versions)
