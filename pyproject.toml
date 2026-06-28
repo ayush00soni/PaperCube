@@ -6,6 +6,7 @@ build-backend = "scikit_build_core.build"
 name = "papercube"
 version = "1.0.4"
 description = "A mathematically consistent N×N×N Rubik's Cube simulation library."
+license = {text = "MIT"}
 readme = "README.md"
 authors = [
     { name = "Ayush", email = "ayush.soni30705@gmail.com" }
